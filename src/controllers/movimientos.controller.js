@@ -4,14 +4,13 @@ async function registrarEntrada(req, res) {
     try {
         const {
             producto_id,
-            usuario_id,
             cantidad,
             motivo,
             observacion,
             lote_id
         } = req.body;
 
-       if (
+        if (
             producto_id === undefined ||
             producto_id === null ||
             cantidad === undefined ||
@@ -39,9 +38,7 @@ async function registrarEntrada(req, res) {
         const movimiento =
             await movimientosService.registrarEntrada({
                 producto_id: Number(producto_id),
-                usuario_id: usuario_id
-                    ? Number(usuario_id)
-                    : null,
+                usuario_id: req.usuario.id,
                 cantidad: Number(cantidad),
                 motivo,
                 observacion,
@@ -69,13 +66,12 @@ async function registrarSalida(req, res) {
     try {
         const {
             producto_id,
-            usuario_id,
             cantidad,
             motivo,
             observacion
         } = req.body;
 
-       if (
+        if (
             producto_id === undefined ||
             producto_id === null ||
             cantidad === undefined ||
@@ -101,9 +97,7 @@ async function registrarSalida(req, res) {
         const movimiento =
             await movimientosService.registrarSalida({
                 producto_id: Number(producto_id),
-                usuario_id: usuario_id
-                    ? Number(usuario_id)
-                    : null,
+                usuario_id: req.usuario.id,
                 cantidad: Number(cantidad),
                 motivo,
                 observacion

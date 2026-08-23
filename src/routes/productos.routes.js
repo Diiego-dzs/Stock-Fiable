@@ -5,7 +5,12 @@ const productosController = require('../controllers/productos.controller');
 const movimientosController =
     require('../controllers/movimientos.controller');
 
+const { autenticar } =
+    require('../middleware/auth.middleware');
+
 const router = express.Router();
+
+router.use(autenticar);
 
 router.get('/', productosController.obtenerProductos);
 

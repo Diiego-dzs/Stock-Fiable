@@ -3,7 +3,12 @@ const express = require('express');
 const stockController =
     require('../controllers/stock.controller');
 
+const { autenticar } =
+    require('../middleware/auth.middleware');
+
 const router = express.Router();
+
+router.use(autenticar);
 
 router.get(
     '/alertas',

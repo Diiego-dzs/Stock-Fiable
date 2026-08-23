@@ -3,7 +3,12 @@ const express = require('express');
 const movimientosController =
     require('../controllers/movimientos.controller');
 
+const { autenticar } =
+    require('../middleware/auth.middleware');
+
 const router = express.Router();
+
+router.use(autenticar);
 
 router.get(
     '/',
