@@ -1,0 +1,114 @@
+
+.app {
+    min-height: 100vh;
+    background: #f4f6f8;
+    color: #1f2937;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 40px;
+    background: #1f2937;
+    color: white;
+}
+
+.header h1 {
+    margin: 0;
+    font-size: 28px;
+}
+
+.header p {
+    margin: 4px 0 0;
+    color: #d1d5db;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.user-info span {
+    font-weight: 600;
+}
+
+.user-info button {
+    border: none;
+    border-radius: 6px;
+    padding: 8px 14px;
+    background: white;
+    color: #1f2937;
+    cursor: pointer;
+}
+
+.user-info button:hover {
+    background: #e5e7eb;
+}
+
+.main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 24px;
+}
+
+.welcome {
+    margin-bottom: 32px;
+}
+
+.welcome h2 {
+    margin-bottom: 8px;
+    font-size: 30px;
+}
+
+.welcome p {
+    margin: 0;
+    color: #6b7280;
+}
+
+.dashboard {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+.card {
+    padding: 24px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.card h3 {
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+
+.card p {
+    margin: 0;
+    color: #6b7280;
+}
+
+@media (max-width: 700px) {
+    .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 20px;
+    }
+
+    .user-info {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .main {
+        padding: 24px 16px;
+    }
+}
