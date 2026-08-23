@@ -330,13 +330,28 @@ async function registrarSalida({
     }
 }
 
-async function obtenerMovimientos() {
+async function obtenerMovimientos(filtros = {}) {
     let conexion;
 
     try {
         conexion = await pool.getConnection();
 
-        const movimientos = await conexion.query(`
+        const condiciones = [];
+        const parametros = [];
+
+        // Filtrar por tipo de movimiento
+        if (filtros.tipo) {
+            condiciones.push('m.tipo = ?');
+            parametros.push(filtros.tipo);
+        }
+
+        // Filtrar por producto
+        if (filtros.producto_id) {
+            condiciones.push('m.producto_id = ?');
+            parametros.push(Number(filtros.producto_id));
+        }
+
+        let consulta = `
             SELECT
                 m.id,
                 m.producto_id,
@@ -351,10 +366,24 @@ async function obtenerMovimientos() {
             FROM movimientos_stock m
             INNER JOIN productos p
                 ON p.id = m.producto_id
+        `;
+
+        if (condiciones.length > 0) {
+            consulta += `
+                WHERE ${condiciones.join(' AND ')}
+            `;
+        }
+
+        consulta += `
             ORDER BY
                 m.fecha DESC,
                 m.id DESC
-        `);
+        `;
+
+        const movimientos = await conexion.query(
+            consulta,
+            parametros
+        );
 
         return movimientos;
 

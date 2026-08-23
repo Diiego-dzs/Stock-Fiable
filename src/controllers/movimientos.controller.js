@@ -128,8 +128,39 @@ async function registrarSalida(req, res) {
 
 async function obtenerMovimientos(req, res) {
     try {
+        const {
+            tipo,
+            producto_id
+        } = req.query;
+
+        if (
+            tipo &&
+            tipo !== 'ENTRADA' &&
+            tipo !== 'SALIDA'
+        ) {
+            return res.status(400).json({
+                error: 'El tipo debe ser ENTRADA o SALIDA'
+            });
+        }
+
+        if (producto_id !== undefined) {
+            const productoIdNumero = Number(producto_id);
+
+            if (
+                !Number.isInteger(productoIdNumero) ||
+                productoIdNumero <= 0
+            ) {
+                return res.status(400).json({
+                    error: 'producto_id debe ser un número entero mayor que cero'
+                });
+            }
+        }
+        
         const movimientos =
-            await movimientosService.obtenerMovimientos();
+            await movimientosService.obtenerMovimientos({
+                tipo,
+                producto_id
+            });
 
         res.json(movimientos);
 
