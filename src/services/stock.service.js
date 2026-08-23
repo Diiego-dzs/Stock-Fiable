@@ -163,8 +163,57 @@ async function obtenerStockGeneral() {
     }
 }
 
+    async function obtenerVencimientos() {
+    let conexion;
+
+    try {
+        conexion = await pool.getConnection();
+
+        const vencimientos = await conexion.query(`
+            SELECT
+                l.id,
+                l.producto_id,
+                p.codigo,
+                p.nombre AS producto,
+                l.codigo_lote,
+                l.fecha_vencimiento,
+                l.stock_actual,
+                CASE
+                    WHEN l.fecha_vencimiento < CURDATE()
+                        THEN 'VENCIDO'
+                    WHEN l.fecha_vencimiento = CURDATE()
+                        THEN 'VENCE_HOY'
+                    WHEN l.fecha_vencimiento <= DATE_ADD(
+                        CURDATE(),
+                        INTERVAL 30 DAY
+                    )
+                        THEN 'VENCE_PRONTO'
+                    ELSE 'VIGENTE'
+                END AS estado_vencimiento
+            FROM lotes l
+            INNER JOIN productos p
+                ON p.id = l.producto_id
+            WHERE
+                l.estado = 'activo'
+                AND l.stock_actual > 0
+                AND l.fecha_vencimiento IS NOT NULL
+            ORDER BY
+                l.fecha_vencimiento ASC,
+                l.id ASC
+        `);
+
+        return vencimientos;
+
+    } finally {
+        if (conexion) {
+            conexion.release();
+        }
+    }
+}
+
 module.exports = {
     obtenerAlertasStock,
     obtenerStockGeneral,
-    obtenerResumenStock
+    obtenerResumenStock,
+    obtenerVencimientos
 };

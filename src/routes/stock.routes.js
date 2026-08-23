@@ -16,6 +16,11 @@ router.get(
 );
 
 router.get(
+    '/vencimientos',
+    stockController.obtenerVencimientos
+);
+    
+router.get(
     '/',
     stockController.obtenerStockGeneral
 );
