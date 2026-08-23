@@ -130,7 +130,9 @@ async function obtenerMovimientos(req, res) {
     try {
         const {
             tipo,
-            producto_id
+            producto_id,
+            fecha_desde,
+            fecha_hasta
         } = req.query;
 
         if (
@@ -156,10 +158,24 @@ async function obtenerMovimientos(req, res) {
             }
         }
         
+        if (fecha_desde && isNaN(Date.parse(fecha_desde))) {
+            return res.status(400).json({
+                error: 'fecha_desde no es una fecha válida'
+            });
+        }
+
+        if (fecha_hasta && isNaN(Date.parse(fecha_hasta))) {
+            return res.status(400).json({
+                error: 'fecha_hasta no es una fecha válida'
+            });
+        }
+
         const movimientos =
             await movimientosService.obtenerMovimientos({
                 tipo,
-                producto_id
+                producto_id,
+                fecha_desde,
+                fecha_hasta
             });
 
         res.json(movimientos);

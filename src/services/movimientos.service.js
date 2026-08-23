@@ -339,6 +339,17 @@ async function obtenerMovimientos(filtros = {}) {
         const condiciones = [];
         const parametros = [];
 
+        // Filtrar desde una fecha
+        if (filtros.fecha_desde) {
+            condiciones.push('m.fecha >= ?');
+            parametros.push(`${filtros.fecha_desde} 00:00:00`);
+        }
+
+        if (filtros.fecha_hasta) {
+            condiciones.push('m.fecha <= ?');
+            parametros.push(`${filtros.fecha_hasta} 23:59:59`);
+        }
+
         // Filtrar por tipo de movimiento
         if (filtros.tipo) {
             condiciones.push('m.tipo = ?');
