@@ -8,6 +8,42 @@ async function registrarEntrada({
     observacion,
     lote_id
 }) {
+    if (!cantidad || Number(cantidad) <= 0) {
+    throw new Error(
+        'La cantidad debe ser mayor que 0'
+    );
+}
+
+    if (!Number.isInteger(Number(producto_id)) || Number(producto_id) <= 0) {
+    throw new Error(
+        'El producto_id debe ser un número entero mayor que 0'
+    );
+}
+
+    if (!Number.isInteger(Number(lote_id)) || Number(lote_id) <= 0) {
+    throw new Error(
+        'El lote_id debe ser un número entero mayor que 0'
+    );
+}
+
+    if (!motivo || !motivo.trim()) {
+    throw new Error(
+        'El motivo es obligatorio'
+    );
+}
+
+    if (motivo.trim().length > 100) {
+    throw new Error(
+        'El motivo no puede superar los 100 caracteres'
+    );
+}
+
+    if (observacion && observacion.trim().length > 255) {
+    throw new Error(
+        'La observacion no puede superar los 255 caracteres'
+    );
+}
+
     let conexion;
 
     try {
@@ -120,6 +156,36 @@ async function registrarSalida({
     motivo,
     observacion
 }) {
+    if (!cantidad || Number(cantidad) <= 0) {
+    throw new Error(
+        'La cantidad debe ser mayor que 0'
+    );
+}
+
+    if (!Number.isInteger(Number(producto_id)) || Number(producto_id) <= 0) {
+    throw new Error(
+        'El producto_id debe ser un número entero mayor que 0'
+    );
+}
+
+    if (!motivo || !motivo.trim()) {
+    throw new Error(
+        'El motivo es obligatorio'
+    );
+}
+
+    if (motivo.trim().length > 100) {
+    throw new Error(
+        'El motivo no puede superar los 100 caracteres'
+    );
+}
+
+    if (observacion && observacion.trim().length > 255) {
+    throw new Error(
+        'La observacion no puede superar los 255 caracteres'
+    );
+}
+
     let conexion;
 
     try {

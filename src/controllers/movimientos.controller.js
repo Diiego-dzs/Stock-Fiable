@@ -11,9 +11,22 @@ async function registrarEntrada(req, res) {
             lote_id
         } = req.body;
 
-        if (!producto_id || !cantidad || !motivo || !lote_id) {
+       if (
+            producto_id === undefined ||
+            producto_id === null ||
+            cantidad === undefined ||
+            cantidad === null ||
+            lote_id === undefined ||
+            lote_id === null
+        ) {
             return res.status(400).json({
-                error: 'producto_id, lote_id, cantidad y motivo son obligatorios'
+                error: 'producto_id, lote_id y cantidad son obligatorios'
+            });
+        }
+
+        if (!motivo || !motivo.trim()) {
+            return res.status(400).json({
+                error: 'El motivo es obligatorio'
             });
         }
 
@@ -62,9 +75,20 @@ async function registrarSalida(req, res) {
             observacion
         } = req.body;
 
-        if (!producto_id || !cantidad || !motivo) {
+       if (
+            producto_id === undefined ||
+            producto_id === null ||
+            cantidad === undefined ||
+            cantidad === null
+        ) {
             return res.status(400).json({
-                error: 'producto_id, cantidad y motivo son obligatorios'
+                error: 'producto_id y cantidad son obligatorios'
+            });
+        }
+
+        if (!motivo || !motivo.trim()) {
+            return res.status(400).json({
+                error: 'El motivo es obligatorio'
             });
         }
 
