@@ -6,6 +6,9 @@ const movimientosController =
 const { autenticar } =
     require('../middleware/auth.middleware');
 
+const { permitirRoles } =
+    require('../middleware/rol.middleware');
+
 const router = express.Router();
 
 router.use(autenticar);
@@ -22,11 +25,13 @@ router.get(
 
 router.post(
     '/entrada',
+    permitirRoles('Dueño'),
     movimientosController.registrarEntrada
 );
 
 router.post(
     '/salida',
+    permitirRoles('Dueño'),
     movimientosController.registrarSalida
 );
 
