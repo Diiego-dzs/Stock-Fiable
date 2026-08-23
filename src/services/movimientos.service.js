@@ -335,9 +335,67 @@ async function obtenerMovimientosPorProducto(productoId) {
     }
 }
 
+async function obtenerMovimientoPorId(movimientoId) {
+    let conexion;
+
+    try {
+        conexion = await pool.getConnection();
+
+        const movimientos = await conexion.query(`
+            SELECT
+                m.id,
+                m.producto_id,
+                p.codigo,
+                p.nombre AS producto,
+                m.usuario_id,
+                m.tipo,
+                m.cantidad,
+                m.motivo,
+                m.observacion,
+                m.fecha
+            FROM movimientos_stock m
+            INNER JOIN productos p
+                ON p.id = m.producto_id
+            WHERE m.id = ?
+        `, [movimientoId]);
+
+        if (movimientos.length === 0) {
+            throw new Error('Movimiento no encontrado');
+        }
+
+        const movimiento = movimientos[0];
+
+        const lotes = await conexion.query(`
+            SELECT
+                ml.lote_id,
+                l.codigo_lote,
+                l.fecha_vencimiento,
+                ml.cantidad
+            FROM movimientos_lotes ml
+            INNER JOIN lotes l
+                ON l.id = ml.lote_id
+            WHERE ml.movimiento_id = ?
+            ORDER BY
+                l.fecha_vencimiento ASC,
+                ml.lote_id ASC
+        `, [movimientoId]);
+
+        return {
+            movimiento,
+            lotes
+        };
+
+    } finally {
+        if (conexion) {
+            conexion.release();
+        }
+    }
+}
+
 module.exports = {
     registrarEntrada,
     registrarSalida,
     obtenerMovimientos,
-    obtenerMovimientosPorProducto
+    obtenerMovimientosPorProducto,
+    obtenerMovimientoPorId
 };

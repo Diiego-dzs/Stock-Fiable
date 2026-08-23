@@ -10,6 +10,11 @@ router.get(
     movimientosController.obtenerMovimientos
 );
 
+router.get(
+    '/:movimientoId',
+    movimientosController.obtenerMovimientoPorId
+);
+
 router.post(
     '/entrada',
     movimientosController.registrarEntrada

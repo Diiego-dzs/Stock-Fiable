@@ -144,9 +144,39 @@ async function obtenerMovimientosPorProducto(req, res) {
     }
 }
 
+async function obtenerMovimientoPorId(req, res) {
+    try {
+        const { movimientoId } = req.params;
+
+        const resultado =
+            await movimientosService.obtenerMovimientoPorId(
+                movimientoId
+            );
+
+        res.json(resultado);
+
+    } catch (error) {
+        console.error(
+            'Error al obtener movimiento:',
+            error.message
+        );
+
+        if (error.message === 'Movimiento no encontrado') {
+            return res.status(404).json({
+                error: error.message
+            });
+        }
+
+        res.status(500).json({
+            error: 'Error al obtener el movimiento'
+        });
+    }
+}
+
 module.exports = {
     registrarEntrada,
     registrarSalida,
     obtenerMovimientos,
-    obtenerMovimientosPorProducto
+    obtenerMovimientosPorProducto,
+    obtenerMovimientoPorId
 };
