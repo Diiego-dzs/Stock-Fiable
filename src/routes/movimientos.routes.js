@@ -5,6 +5,11 @@ const movimientosController =
 
 const router = express.Router();
 
+router.get(
+    '/',
+    movimientosController.obtenerMovimientos
+);
+
 router.post(
     '/entrada',
     movimientosController.registrarEntrada

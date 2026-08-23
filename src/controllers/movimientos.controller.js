@@ -102,7 +102,27 @@ async function registrarSalida(req, res) {
     }
 }
 
+async function obtenerMovimientos(req, res) {
+    try {
+        const movimientos =
+            await movimientosService.obtenerMovimientos();
+
+        res.json(movimientos);
+
+    } catch (error) {
+        console.error(
+            'Error al obtener movimientos:',
+            error.message
+        );
+
+        res.status(500).json({
+            error: 'Error al obtener los movimientos'
+        });
+    }
+}
+
 module.exports = {
     registrarEntrada,
-    registrarSalida
+    registrarSalida,
+    obtenerMovimientos
 };
