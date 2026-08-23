@@ -132,7 +132,9 @@ async function obtenerMovimientos(req, res) {
             tipo,
             producto_id,
             fecha_desde,
-            fecha_hasta
+            fecha_hasta,
+            page,
+            limite
         } = req.query;
 
         if (
@@ -170,12 +172,46 @@ async function obtenerMovimientos(req, res) {
             });
         }
 
+        if (page !== undefined) {
+            const paginaNumero = Number(page);
+
+            if (
+                !Number.isInteger(paginaNumero) ||
+                paginaNumero <= 0
+            ) {
+                return res.status(400).json({
+                    error: 'page debe ser un número entero mayor que cero'
+                });
+            }
+        }
+
+        if (limite !== undefined) {
+            const limiteNumero = Number(limite);
+
+            if (
+                !Number.isInteger(limiteNumero) ||
+                limiteNumero <= 0
+            ) {
+                return res.status(400).json({
+                    error: 'limite debe ser un número entero mayor que cero'
+                });
+            }
+
+            if (limiteNumero > 100) {
+                return res.status(400).json({
+                    error: 'limite no puede ser mayor que 100'
+                });
+            }
+        }
+
         const movimientos =
             await movimientosService.obtenerMovimientos({
                 tipo,
                 producto_id,
                 fecha_desde,
-                fecha_hasta
+                fecha_hasta,
+                pagina: page,
+                limite
             });
 
         res.json(movimientos);

@@ -345,6 +345,7 @@ async function obtenerMovimientos(filtros = {}) {
             parametros.push(`${filtros.fecha_desde} 00:00:00`);
         }
 
+        // Filtrar hasta una fecha
         if (filtros.fecha_hasta) {
             condiciones.push('m.fecha <= ?');
             parametros.push(`${filtros.fecha_hasta} 23:59:59`);
@@ -362,7 +363,34 @@ async function obtenerMovimientos(filtros = {}) {
             parametros.push(Number(filtros.producto_id));
         }
 
-        let consulta = `
+        let consultaBase = `
+            FROM movimientos_stock m
+            INNER JOIN productos p
+                ON p.id = m.producto_id
+        `;
+
+        if (condiciones.length > 0) {
+            consultaBase += `
+                WHERE ${condiciones.join(' AND ')}
+            `;
+        }
+
+        // Obtener cantidad total de movimientos
+        const resultadoTotal = await conexion.query(`
+            SELECT COUNT(*) AS total
+            ${consultaBase}
+        `, parametros);
+
+        const total = Number(resultadoTotal[0].total);
+
+        // Paginación
+        const pagina = Number(filtros.pagina) || 1;
+        const limite = Number(filtros.limite) || 10;
+
+        const offset = (pagina - 1) * limite;
+
+        // Obtener movimientos de la página actual
+        const movimientos = await conexion.query(`
             SELECT
                 m.id,
                 m.producto_id,
@@ -374,29 +402,26 @@ async function obtenerMovimientos(filtros = {}) {
                 m.motivo,
                 m.observacion,
                 m.fecha
-            FROM movimientos_stock m
-            INNER JOIN productos p
-                ON p.id = m.producto_id
-        `;
-
-        if (condiciones.length > 0) {
-            consulta += `
-                WHERE ${condiciones.join(' AND ')}
-            `;
-        }
-
-        consulta += `
+            ${consultaBase}
             ORDER BY
                 m.fecha DESC,
                 m.id DESC
-        `;
+            LIMIT ? OFFSET ?
+        `, [
+            ...parametros,
+            limite,
+            offset
+        ]);
 
-        const movimientos = await conexion.query(
-            consulta,
-            parametros
-        );
+        const totalPaginas = Math.ceil(total / limite);
 
-        return movimientos;
+        return {
+            pagina,
+            limite,
+            total,
+            total_paginas: totalPaginas,
+            movimientos
+        };
 
     } finally {
         if (conexion) {
