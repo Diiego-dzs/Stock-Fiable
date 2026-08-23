@@ -18,6 +18,25 @@ async function obtenerAlertasStock(req, res) {
     }
 }
 
+async function obtenerStockGeneral(req, res) {
+    try {
+        const stock = await stockService.obtenerStockGeneral();
+
+        res.json(stock);
+
+    } catch (error) {
+        console.error(
+            'Error al obtener el stock general:',
+            error.message
+        );
+
+        res.status(500).json({
+            error: 'Error al obtener el stock general'
+        });
+    }
+}
+
 module.exports = {
-    obtenerAlertasStock
+    obtenerAlertasStock,
+    obtenerStockGeneral
 };

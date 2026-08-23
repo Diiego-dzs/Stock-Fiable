@@ -10,4 +10,9 @@ router.get(
     stockController.obtenerAlertasStock
 );
 
+router.get(
+    '/',
+    stockController.obtenerStockGeneral
+);
+
 module.exports = router;
