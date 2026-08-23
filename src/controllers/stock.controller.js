@@ -73,9 +73,29 @@ async function obtenerResumenStock(req, res) {
     }
 }
 
+async function obtenerAlertasVencimiento(req, res) {
+    try {
+        const alertas =
+            await stockService.obtenerAlertasVencimiento();
+
+        res.json(alertas);
+
+    } catch (error) {
+        console.error(
+            'Error al obtener alertas de vencimiento:',
+            error.message
+        );
+
+        res.status(500).json({
+            error: 'Error al obtener las alertas de vencimiento'
+        });
+    }
+}
+
 module.exports = {
     obtenerAlertasStock,
     obtenerStockGeneral,
     obtenerResumenStock,
-    obtenerVencimientos
+    obtenerVencimientos,
+    obtenerAlertasVencimiento
 };

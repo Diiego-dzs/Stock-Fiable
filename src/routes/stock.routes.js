@@ -19,7 +19,12 @@ router.get(
     '/vencimientos',
     stockController.obtenerVencimientos
 );
-    
+
+router.get(
+    '/alertas-vencimiento',
+    stockController.obtenerAlertasVencimiento
+);
+
 router.get(
     '/',
     stockController.obtenerStockGeneral
