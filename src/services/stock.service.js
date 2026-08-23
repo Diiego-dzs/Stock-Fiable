@@ -87,7 +87,84 @@ async function obtenerStockGeneral() {
     }
 }
 
+    async function obtenerResumenStock() {
+    let conexion;
+
+    try {
+        conexion = await pool.getConnection();
+
+        const resultado = await conexion.query(`
+            SELECT
+                COUNT(*) AS total_productos,
+
+                SUM(
+                    CASE
+                        WHEN COALESCE(stock_actual, 0) = 0
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS productos_sin_stock,
+
+                SUM(
+                    CASE
+                        WHEN COALESCE(stock_actual, 0) > 0
+                         AND COALESCE(stock_actual, 0) <= stock_minimo
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS productos_stock_bajo,
+
+                SUM(
+                    CASE
+                        WHEN COALESCE(stock_actual, 0) > stock_minimo
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS productos_stock_normal,
+
+                COALESCE(
+                    SUM(stock_actual),
+                    0
+                ) AS unidades_totales
+
+            FROM (
+                SELECT
+                    p.id,
+                    p.stock_minimo,
+                    COALESCE(
+                        SUM(l.stock_actual),
+                        0
+                    ) AS stock_actual
+                FROM productos p
+                LEFT JOIN lotes l
+                    ON l.producto_id = p.id
+                    AND l.estado = 'activo'
+                WHERE p.estado = 'activo'
+                GROUP BY
+                    p.id,
+                    p.stock_minimo
+            ) AS resumen
+        `);
+
+       const resumen = resultado[0];
+
+        return {
+            total_productos: Number(resumen.total_productos),
+            productos_sin_stock: Number(resumen.productos_sin_stock),
+            productos_stock_bajo: Number(resumen.productos_stock_bajo),
+            productos_stock_normal: Number(resumen.productos_stock_normal),
+            unidades_totales: Number(resumen.unidades_totales)
+        };
+
+    } finally {
+        if (conexion) {
+            conexion.release();
+        }
+    }
+}
+
 module.exports = {
     obtenerAlertasStock,
-    obtenerStockGeneral
+    obtenerStockGeneral,
+    obtenerResumenStock
 };

@@ -36,7 +36,26 @@ async function obtenerStockGeneral(req, res) {
     }
 }
 
+async function obtenerResumenStock(req, res) {
+    try {
+        const resumen = await stockService.obtenerResumenStock();
+
+        res.json(resumen);
+
+    } catch (error) {
+        console.error(
+            'Error al obtener el resumen de stock:',
+            error.message
+        );
+
+        res.status(500).json({
+            error: 'Error al obtener el resumen de stock'
+        });
+    }
+}
+
 module.exports = {
     obtenerAlertasStock,
-    obtenerStockGeneral
+    obtenerStockGeneral,
+    obtenerResumenStock
 };

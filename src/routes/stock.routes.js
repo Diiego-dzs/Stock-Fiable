@@ -11,6 +11,11 @@ router.get(
 );
 
 router.get(
+    '/resumen',
+    stockController.obtenerResumenStock
+);
+
+router.get(
     '/',
     stockController.obtenerStockGeneral
 );
