@@ -299,8 +299,45 @@ async function obtenerMovimientos() {
     }
 }
 
+async function obtenerMovimientosPorProducto(productoId) {
+    let conexion;
+
+    try {
+        conexion = await pool.getConnection();
+
+        const movimientos = await conexion.query(`
+            SELECT
+                m.id,
+                m.producto_id,
+                p.codigo,
+                p.nombre AS producto,
+                m.usuario_id,
+                m.tipo,
+                m.cantidad,
+                m.motivo,
+                m.observacion,
+                m.fecha
+            FROM movimientos_stock m
+            INNER JOIN productos p
+                ON p.id = m.producto_id
+            WHERE m.producto_id = ?
+            ORDER BY
+                m.fecha DESC,
+                m.id DESC
+        `, [productoId]);
+
+        return movimientos;
+
+    } finally {
+        if (conexion) {
+            conexion.release();
+        }
+    }
+}
+
 module.exports = {
     registrarEntrada,
     registrarSalida,
-    obtenerMovimientos
+    obtenerMovimientos,
+    obtenerMovimientosPorProducto
 };

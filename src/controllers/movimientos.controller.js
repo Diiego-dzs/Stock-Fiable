@@ -121,8 +121,32 @@ async function obtenerMovimientos(req, res) {
     }
 }
 
+async function obtenerMovimientosPorProducto(req, res) {
+    try {
+        const { productoId } = req.params;
+
+        const movimientos =
+            await movimientosService.obtenerMovimientosPorProducto(
+                productoId
+            );
+
+        res.json(movimientos);
+
+    } catch (error) {
+        console.error(
+            'Error al obtener movimientos del producto:',
+            error.message
+        );
+
+        res.status(500).json({
+            error: 'Error al obtener los movimientos del producto'
+        });
+    }
+}
+
 module.exports = {
     registrarEntrada,
     registrarSalida,
-    obtenerMovimientos
+    obtenerMovimientos,
+    obtenerMovimientosPorProducto
 };
