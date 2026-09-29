@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import './App.css';
+import MovimientosStock from './components/MovimientosStock';
+import NuevoProducto from './components/NuevoProducto';
 
 const API_URL = 'http://localhost:3000/api';
 
@@ -11,6 +13,7 @@ function App() {
     const [usuario, setUsuario] = useState(null);
     const [resumen, setResumen] = useState(null);
     const [productos, setProductos] = useState([]);
+    const [categorias, setCategorias] = useState([]);
 
     const [productoSeleccionado, setProductoSeleccionado] = useState(null);
     const [lotes, setLotes] = useState([]);
@@ -18,6 +21,9 @@ function App() {
     const [cargando, setCargando] = useState(false);
     const [cargandoDetalle, setCargandoDetalle] = useState(false);
     const [error, setError] = useState('');
+
+    const [navAbierta, setNavAbierta] = useState(true);
+    const [pestana, setPestana] = useState('panel');
 
     async function iniciarSesion(event) {
         event.preventDefault();
@@ -50,6 +56,7 @@ function App() {
 
             await obtenerResumen(datos.token);
             await obtenerProductos(datos.token);
+            await obtenerCategorias(datos.token);
 
         } catch (error) {
             console.error(error);
@@ -102,6 +109,38 @@ function App() {
         setProductos(datos);
     }
 
+    async function obtenerCategorias(tokenActual) {
+        const respuesta = await fetch(
+            `${API_URL}/categorias`,
+            {
+                headers: {
+                    Authorization: `Bearer ${tokenActual}`
+                }
+            }
+        );
+
+        const datos = await respuesta.json();
+
+        if (!respuesta.ok) {
+            throw new Error(
+                datos.error || 'Error al obtener las categorías'
+            );
+        }
+
+        setCategorias(datos);
+    }
+
+    async function actualizarDespuesDeProducto() {
+        try {
+            await obtenerResumen(token);
+            await obtenerProductos(token);
+
+        } catch (error) {
+            console.error(error);
+            setError(error.message);
+        }
+    }
+
     async function verDetalleProducto(producto) {
         setProductoSeleccionado(producto);
         setLotes([]);
@@ -137,6 +176,20 @@ function App() {
         }
     }
 
+    async function actualizarDespuesDeMovimiento() {
+        try {
+            await obtenerResumen(token);
+
+            if (productoSeleccionado) {
+                await verDetalleProducto(productoSeleccionado);
+            }
+
+        } catch (error) {
+            console.error(error);
+            setError(error.message);
+        }
+    }
+
     function cerrarDetalle() {
         setProductoSeleccionado(null);
         setLotes([]);
@@ -148,6 +201,8 @@ function App() {
         setUsuario(null);
         setResumen(null);
         setProductos([]);
+        setCategorias([]);
+        setPestana('panel');
         setProductoSeleccionado(null);
         setLotes([]);
         setEmail('');
@@ -249,9 +304,37 @@ function App() {
 
             <header className="header">
 
-                <div>
-                    <h1>Stock Fiable</h1>
-                    <p>Sistema de gestión de stock</p>
+                <div className="header-left">
+
+                    <button
+                        type="button"
+                        className="nav-toggle-btn"
+                        onClick={() =>
+                            setNavAbierta((abierta) => !abierta)
+                        }
+                        aria-label={navAbierta ? 'Ocultar menú' : 'Mostrar menú'}
+                        aria-expanded={navAbierta}
+                    >
+                        <svg
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                        >
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                            <line x1="3" y1="18" x2="21" y2="18" />
+                        </svg>
+                    </button>
+
+                    <div>
+                        <h1>Stock Fiable</h1>
+                        <p>Sistema de gestión de stock</p>
+                    </div>
+
                 </div>
 
                 <div className="user-info">
@@ -271,9 +354,105 @@ function App() {
 
             </header>
 
-            <main className="main">
+            <div className="layout">
 
-                <section className="welcome">
+                <nav
+                    className={
+                        navAbierta ? 'nav-lateral' : 'nav-lateral cerrada'
+                    }
+                >
+                    <div className="nav-inner">
+
+                        <div className="nav-header">
+                            <span>Menú</span>
+
+                            <button
+                                type="button"
+                                className="nav-retraer-btn"
+                                onClick={() => setNavAbierta(false)}
+                                aria-label="Retraer menú"
+                            >
+                                <svg
+                                    width="20"
+                                    height="20"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                >
+                                    <polyline points="15 18 9 12 15 6" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <ul className="nav-links">
+                            <li>
+                                <button
+                                    type="button"
+                                    className={
+                                        pestana === 'panel' ? 'activo' : ''
+                                    }
+                                    onClick={() => setPestana('panel')}
+                                >
+                                    Panel
+                                </button>
+                            </li>
+                            <li>
+                                <button
+                                    type="button"
+                                    className={
+                                        pestana === 'productos' ? 'activo' : ''
+                                    }
+                                    onClick={() => setPestana('productos')}
+                                >
+                                    Productos
+                                </button>
+                            </li>
+
+                            {usuario?.rol === 'Dueño' && (
+                                <li>
+                                    <button
+                                        type="button"
+                                        className={
+                                            pestana === 'nuevo' ? 'activo' : ''
+                                        }
+                                        onClick={() => setPestana('nuevo')}
+                                    >
+                                        Nuevo producto
+                                    </button>
+                                </li>
+                            )}
+
+                            {usuario?.rol === 'Dueño' && (
+                                <li>
+                                    <button
+                                        type="button"
+                                        className={
+                                            pestana === 'movimientos'
+                                                ? 'activo'
+                                                : ''
+                                        }
+                                        onClick={() =>
+                                            setPestana('movimientos')
+                                        }
+                                    >
+                                        Registrar movimiento
+                                    </button>
+                                </li>
+                            )}
+                        </ul>
+
+                    </div>
+                </nav>
+
+                <main className="main">
+
+                    {pestana === 'panel' && (
+                        <>
+
+                    <section className="welcome" id="welcome">
 
                     <h2>Panel principal</h2>
 
@@ -283,7 +462,7 @@ function App() {
 
                 </section>
 
-                <section className="dashboard">
+                <section className="dashboard" id="dashboard">
 
                     <div className="card">
                         <h3>Productos</h3>
@@ -327,7 +506,13 @@ function App() {
 
                 </section>
 
-                <section className="products-section">
+                        </>
+                    )}
+
+                    {pestana === 'productos' && (
+                        <>
+
+                <section className="products-section" id="productos">
 
                     <div className="section-header">
                         <h2>Productos</h2>
@@ -524,7 +709,28 @@ function App() {
                     </section>
                 )}
 
-            </main>
+                        </>
+                    )}
+
+                    {pestana === 'nuevo' && usuario?.rol === 'Dueño' && (
+                        <NuevoProducto
+                            token={token}
+                            categorias={categorias}
+                            onProductoCreado={actualizarDespuesDeProducto}
+                        />
+                    )}
+
+                    {pestana === 'movimientos' && usuario?.rol === 'Dueño' && (
+                        <MovimientosStock
+                            token={token}
+                            productos={productos}
+                            onMovimientoRegistrado={actualizarDespuesDeMovimiento}
+                        />
+                    )}
+
+                </main>
+
+            </div>
 
         </div>
     );

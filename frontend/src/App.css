@@ -10,6 +10,8 @@ body {
 }
 
 .app {
+    display: flex;
+    flex-direction: column;
     min-height: 100vh;
     background: #F0EDE5;
     color: #1F2933;
@@ -158,11 +160,135 @@ body {
     opacity: 0.9;
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.nav-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid #F0EDE5;
+    border-radius: 8px;
+    background: transparent;
+    color: #F0EDE5;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.nav-toggle-btn:hover {
+    background: #F0EDE5;
+    color: #004643;
+}
+
+/* =========================
+   NAV LATERAL IZQUIERDA
+========================= */
+
+.layout {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+}
+
+.nav-lateral {
+    width: 240px;
+    flex-shrink: 0;
+    background: #004643;
+    color: #F0EDE5;
+    overflow-x: hidden;
+    overflow-y: auto;
+    transition: width 0.25s ease;
+}
+
+.nav-lateral.cerrada {
+    width: 0;
+}
+
+.nav-inner {
+    width: 240px;
+    padding: 20px 16px;
+}
+
+.nav-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(240, 237, 229, 0.25);
+}
+
+.nav-header span {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #F0EDE5;
+}
+
+.nav-retraer-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(240, 237, 229, 0.15);
+    color: #F0EDE5;
+    cursor: pointer;
+}
+
+.nav-retraer-btn:hover {
+    background: #F0EDE5;
+    color: #004643;
+}
+
+.nav-links {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.nav-links button {
+    display: block;
+    width: 100%;
+    padding: 10px 12px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: #F0EDE5;
+    text-align: left;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.nav-links button:hover {
+    background: rgba(240, 237, 229, 0.15);
+}
+
+.nav-links button.activo {
+    background: #F0EDE5;
+    color: #004643;
+}
+
 /* =========================
    CONTENIDO
 ========================= */
 
 .main {
+    flex: 1;
+    min-width: 0;
     max-width: 1200px;
     margin: 0 auto;
     padding: 40px 24px;
@@ -287,6 +413,90 @@ body {
 }
 
 /* =========================
+   MOVIMIENTOS
+========================= */
+
+.movimientos-section {
+    margin-top: 40px;
+}
+
+.movimientos-card {
+    max-width: 640px;
+    padding: 24px;
+    background: white;
+    border: 1px solid rgba(0, 70, 67, 0.25);
+    border-radius: 10px;
+    box-shadow: 0 4px 10px rgba(0, 70, 67, 0.08);
+}
+
+.movimientos-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.movimientos-tabs button {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #004643;
+    border-radius: 7px;
+    background: white;
+    color: #004643;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.movimientos-tabs button.activo {
+    background: #004643;
+    color: #F0EDE5;
+}
+
+.movimientos-card .form-group select,
+.movimientos-card .form-group textarea {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #004643;
+    border-radius: 7px;
+    background: #F0EDE5;
+    color: #1F2933;
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+}
+
+.movimientos-card .form-group select:disabled {
+    opacity: 0.5;
+}
+
+.movimientos-stock {
+    margin: -8px 0 20px;
+    font-weight: 600;
+    color: #0a645f;
+}
+
+.movimientos-ayuda {
+    display: block;
+    margin: 8px 0 20px;
+    color: #6B7280;
+    font-size: 14px;
+}
+
+.success-message {
+    margin-bottom: 20px;
+    padding: 12px;
+    border-radius: 7px;
+    background: #E3F1EF;
+    border: 1px solid #0a645f;
+    color: #004643;
+    font-size: 14px;
+}
+
+.success-message ul {
+    margin: 8px 0 0;
+    padding-left: 20px;
+}
+
+/* =========================
    RESPONSIVE
 ========================= */
 
@@ -319,5 +529,14 @@ body {
 
     .login-card {
         padding: 28px 22px;
+    }
+
+    .nav-lateral {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 60;
+        box-shadow: 8px 0 24px rgba(0, 70, 67, 0.25);
     }
 }
