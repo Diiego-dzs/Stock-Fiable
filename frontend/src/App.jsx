@@ -2,6 +2,7 @@ import { useState } from 'react';
 import './App.css';
 import MovimientosStock from './components/MovimientosStock';
 import NuevoProducto from './components/NuevoProducto';
+import EditarProducto from './components/EditarProducto';
 
 const API_URL = 'http://localhost:3000/api';
 
@@ -32,6 +33,9 @@ function App() {
 
     const [navAbierta, setNavAbierta] = useState(true);
     const [pestana, setPestana] = useState('panel');
+
+    const [productoEditando, setProductoEditando] = useState(null);
+    const [mensajeExito, setMensajeExito] = useState('');
 
     const [busqueda, setBusqueda] = useState('');
     const [filtroCategoria, setFiltroCategoria] = useState('');
@@ -184,6 +188,31 @@ function App() {
         }
     }
 
+    function empezarEdicion(producto) {
+        setMensajeExito('');
+        setProductoEditando(producto);
+        setPestana('editar');
+    }
+
+    function cancelarEdicion() {
+        setProductoEditando(null);
+        setPestana('productos');
+    }
+
+    async function terminarEdicion(productoActualizado) {
+        await actualizarDespuesDeProducto();
+
+        if (productoSeleccionado?.id === productoActualizado.id) {
+            cerrarDetalle();
+        }
+
+        setProductoEditando(null);
+        setPestana('productos');
+        setMensajeExito(
+            `Producto "${productoActualizado.nombre}" actualizado correctamente.`
+        );
+    }
+
     async function verDetalleProducto(producto) {
         setProductoSeleccionado(producto);
         setLotes([]);
@@ -247,6 +276,8 @@ function App() {
         setCategorias([]);
         setPestana('panel');
         setProductoSeleccionado(null);
+        setProductoEditando(null);
+        setMensajeExito('');
         setLotes([]);
         setEmail('');
         setContrasena('');
@@ -567,6 +598,12 @@ function App() {
                         </span>
                     </div>
 
+                    {mensajeExito && (
+                        <div className="success-message">
+                            {mensajeExito}
+                        </div>
+                    )}
+
                     <div className="products-filters">
 
                         <input
@@ -700,6 +737,18 @@ function App() {
                                             >
                                                 Ver detalle
                                             </button>
+
+                                            {usuario?.rol === 'Dueño' && (
+                                                <button
+                                                    type="button"
+                                                    className="detail-button edit-button"
+                                                    onClick={() =>
+                                                        empezarEdicion(producto)
+                                                    }
+                                                >
+                                                    Editar
+                                                </button>
+                                            )}
                                         </td>
 
                                     </tr>
@@ -826,6 +875,17 @@ function App() {
                 )}
 
                         </>
+                    )}
+
+                    {pestana === 'editar' && productoEditando && usuario?.rol === 'Dueño' && (
+                        <EditarProducto
+                            key={productoEditando.id}
+                            token={token}
+                            producto={productoEditando}
+                            categorias={categorias}
+                            onGuardado={terminarEdicion}
+                            onCancelar={cancelarEdicion}
+                        />
                     )}
 
                     {pestana === 'nuevo' && usuario?.rol === 'Dueño' && (

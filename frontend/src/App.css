@@ -423,6 +423,25 @@ body {
     color: #F0EDE5;
 }
 
+.edit-button {
+    margin-left: 8px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.form-actions .login-button {
+    flex: 1;
+    width: auto;
+}
+
+.products-section > .success-message {
+    margin-bottom: 16px;
+}
+
 .products-empty {
     padding: 32px 16px;
     text-align: center;
