@@ -2,8 +2,17 @@ import { useState } from 'react';
 import './App.css';
 import MovimientosStock from './components/MovimientosStock';
 import NuevoProducto from './components/NuevoProducto';
+import EditarProducto from './components/EditarProducto';
 
 const API_URL = 'http://localhost:3000/api';
+
+function normalizarTexto(valor) {
+    return String(valor ?? '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .trim();
+}
 
 function App() {
     const [email, setEmail] = useState('');
@@ -24,6 +33,44 @@ function App() {
 
     const [navAbierta, setNavAbierta] = useState(true);
     const [pestana, setPestana] = useState('panel');
+
+    const [productoEditando, setProductoEditando] = useState(null);
+    const [mensajeExito, setMensajeExito] = useState('');
+
+    const [busqueda, setBusqueda] = useState('');
+    const [filtroCategoria, setFiltroCategoria] = useState('');
+    const [filtroEstado, setFiltroEstado] = useState('');
+
+    const productosFiltrados = productos.filter((producto) => {
+        const texto = normalizarTexto(busqueda);
+
+        const coincideBusqueda =
+            !texto ||
+            [producto.nombre, producto.codigo, producto.marca].some(
+                (campo) => normalizarTexto(campo).includes(texto)
+            );
+
+        const coincideCategoria =
+            !filtroCategoria ||
+            String(producto.categoria_id) === filtroCategoria;
+
+        const coincideEstado =
+            !filtroEstado || producto.estado === filtroEstado;
+
+        return coincideBusqueda && coincideCategoria && coincideEstado;
+    });
+
+    const estadosDisponibles = [
+        ...new Set(productos.map((producto) => producto.estado))
+    ];
+
+    const hayFiltros = busqueda || filtroCategoria || filtroEstado;
+
+    function limpiarFiltros() {
+        setBusqueda('');
+        setFiltroCategoria('');
+        setFiltroEstado('');
+    }
 
     async function iniciarSesion(event) {
         event.preventDefault();
@@ -141,6 +188,31 @@ function App() {
         }
     }
 
+    function empezarEdicion(producto) {
+        setMensajeExito('');
+        setProductoEditando(producto);
+        setPestana('editar');
+    }
+
+    function cancelarEdicion() {
+        setProductoEditando(null);
+        setPestana('productos');
+    }
+
+    async function terminarEdicion(productoActualizado) {
+        await actualizarDespuesDeProducto();
+
+        if (productoSeleccionado?.id === productoActualizado.id) {
+            cerrarDetalle();
+        }
+
+        setProductoEditando(null);
+        setPestana('productos');
+        setMensajeExito(
+            `Producto "${productoActualizado.nombre}" actualizado correctamente.`
+        );
+    }
+
     async function verDetalleProducto(producto) {
         setProductoSeleccionado(producto);
         setLotes([]);
@@ -204,6 +276,8 @@ function App() {
         setCategorias([]);
         setPestana('panel');
         setProductoSeleccionado(null);
+        setProductoEditando(null);
+        setMensajeExito('');
         setLotes([]);
         setEmail('');
         setContrasena('');
@@ -518,8 +592,74 @@ function App() {
                         <h2>Productos</h2>
 
                         <span>
-                            {productos.length} registrados
+                            {hayFiltros
+                                ? `${productosFiltrados.length} de ${productos.length} productos`
+                                : `${productos.length} registrados`}
                         </span>
+                    </div>
+
+                    {mensajeExito && (
+                        <div className="success-message">
+                            {mensajeExito}
+                        </div>
+                    )}
+
+                    <div className="products-filters">
+
+                        <input
+                            type="search"
+                            className="products-search"
+                            value={busqueda}
+                            onChange={(event) =>
+                                setBusqueda(event.target.value)
+                            }
+                            placeholder="Buscar por nombre, código o marca"
+                            aria-label="Buscar productos"
+                        />
+
+                        <select
+                            value={filtroCategoria}
+                            onChange={(event) =>
+                                setFiltroCategoria(event.target.value)
+                            }
+                            aria-label="Filtrar por categoría"
+                        >
+                            <option value="">Categoría: todas</option>
+                            {categorias.map((categoria) => (
+                                <option
+                                    key={categoria.id}
+                                    value={String(categoria.id)}
+                                >
+                                    {categoria.nombre}
+                                </option>
+                            ))}
+                        </select>
+
+                        <select
+                            value={filtroEstado}
+                            onChange={(event) =>
+                                setFiltroEstado(event.target.value)
+                            }
+                            aria-label="Filtrar por estado"
+                        >
+                            <option value="">Estado: todos</option>
+                            {estadosDisponibles.map((estado) => (
+                                <option key={estado} value={estado}>
+                                    {estado}
+                                </option>
+                            ))}
+                        </select>
+
+                        {hayFiltros && (
+                            <button
+                                type="button"
+                                className="clear-filters-button"
+                                onClick={limpiarFiltros}
+                            >
+                                Limpiar filtros
+                            </button>
+                        )}
+
                     </div>
 
                     <div className="products-table-container">
@@ -541,7 +681,20 @@ function App() {
 
                             <tbody>
 
-                                {productos.map((producto) => (
+                                {productosFiltrados.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={8}
+                                            className="products-empty"
+                                        >
+                                            {productos.length === 0
+                                                ? 'Todavía no hay productos registrados.'
+                                                : 'No hay productos que coincidan con la búsqueda o los filtros.'}
+                                        </td>
+                                    </tr>
+                                )}
+
+                                {productosFiltrados.map((producto) => (
                                     <tr key={producto.id}>
 
                                         <td>
@@ -584,6 +737,18 @@ function App() {
                                             >
                                                 Ver detalle
                                             </button>
+
+                                            {usuario?.rol === 'Dueño' && (
+                                                <button
+                                                    type="button"
+                                                    className="detail-button edit-button"
+                                                    onClick={() =>
+                                                        empezarEdicion(producto)
+                                                    }
+                                                >
+                                                    Editar
+                                                </button>
+                                            )}
                                         </td>
 
                                     </tr>
@@ -710,6 +875,17 @@ function App() {
                 )}
 
                         </>
+                    )}
+
+                    {pestana === 'editar' && productoEditando && usuario?.rol === 'Dueño' && (
+                        <EditarProducto
+                            key={productoEditando.id}
+                            token={token}
+                            producto={productoEditando}
+                            categorias={categorias}
+                            onGuardado={terminarEdicion}
+                            onCancelar={cancelarEdicion}
+                        />
                     )}
 
                     {pestana === 'nuevo' && usuario?.rol === 'Dueño' && (

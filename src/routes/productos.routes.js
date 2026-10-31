@@ -23,6 +23,12 @@ router.post(
     productosController.crearProducto
 );
 
+router.put(
+    '/:id',
+    permitirRoles('Dueño'),
+    productosController.actualizarProducto
+);
+
 router.get(
     '/:productoId/movimientos',
     movimientosController.obtenerMovimientosPorProducto

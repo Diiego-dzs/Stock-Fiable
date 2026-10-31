@@ -378,6 +378,76 @@ body {
     font-weight: 600;
 }
 
+.products-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.products-filters input,
+.products-filters select {
+    padding: 10px 14px;
+    border: 1px solid #004643;
+    border-radius: 7px;
+    background: #F0EDE5;
+    color: #1F2933;
+    font-size: 15px;
+    font-family: inherit;
+    outline: none;
+}
+
+.products-filters input:focus,
+.products-filters select:focus {
+    border-width: 2px;
+    padding: 9px 13px;
+}
+
+.products-search {
+    flex: 1 1 260px;
+}
+
+.clear-filters-button {
+    padding: 10px 14px;
+    border: 1px solid #004643;
+    border-radius: 7px;
+    background: transparent;
+    color: #004643;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.clear-filters-button:hover {
+    background: #004643;
+    color: #F0EDE5;
+}
+
+.edit-button {
+    margin-left: 8px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.form-actions .login-button {
+    flex: 1;
+    width: auto;
+}
+
+.products-section > .success-message {
+    margin-bottom: 16px;
+}
+
+.products-empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: #6B7280;
+}
+
 .products-table-container {
     overflow-x: auto;
     background: white;
