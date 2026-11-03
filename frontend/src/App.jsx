@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import { useSesion } from './useSesion.js';
+import { MOTIVOS_MOVIMIENTO, obtenerStockDisponible, avisoStockInsuficiente } from './movimientos.utils.js';
 import Sidebar from './Sidebar.jsx';
 import { puedeRegistrarMovimientos } from './permisos.js';
 import Usuarios from './Usuarios.jsx';
@@ -52,6 +53,8 @@ function StockFiable({ sesion }) {
   const [mensaje, setMensaje] = useState('');
   const [tipoMovimiento, setTipoMovimiento] = useState('ENTRADA');
   const [formulario, setFormulario] = useState(formularioInicial);
+  const stockDisponible = obtenerStockDisponible(productos, formulario.producto_id);
+  const avisoSalida = tipoMovimiento === 'SALIDA' ? avisoStockInsuficiente(formulario.cantidad, stockDisponible) : '';
   const [lotesFormulario, setLotesFormulario] = useState([]);
   const [cargandoLotes, setCargandoLotes] = useState(false);
   const [filtros, setFiltros] = useState(filtrosIniciales);
@@ -151,6 +154,10 @@ function StockFiable({ sesion }) {
     const cantidad = Number(formulario.cantidad);
     if (!Number.isInteger(cantidad) || cantidad <= 0) {
       setError('Ingresá una cantidad entera mayor a cero.');
+      return;
+    }
+    if (avisoSalida) {
+      setError(avisoSalida);
       return;
     }
     if (tipoMovimiento === 'ENTRADA' && modalidadLote === 'existente' && !formulario.lote_id) {
@@ -326,7 +333,8 @@ function StockFiable({ sesion }) {
           {nuevoProducto && usuario?.rol === 'Dueño' && <section className="stock-panel">
             <h2>Nuevo producto</h2>
             <form className="stock-form" onSubmit={e => guardarAlta(e, 'producto')}>
-              {[['codigo', 'Código', 50], ['nombre', 'Nombre', 150], ['marca', 'Marca', 100], ['descripcion', 'Descripción', 16000]].map(([campo, etiqueta, max]) => <label key={campo}>{etiqueta}<input maxLength={max} required={campo === 'codigo' || campo === 'nombre'} value={nuevoProducto[campo]} onChange={e => setNuevoProducto(p => ({ ...p, [campo]: e.target.value }))} /></label>)}
+              {[['codigo', 'Código', 50], ['nombre', 'Nombre', 150], ['marca', 'Marca', 100]].map(([campo, etiqueta, max]) => <label key={campo}>{etiqueta}<input maxLength={max} required={campo === 'codigo' || campo === 'nombre'} value={nuevoProducto[campo]} onChange={e => setNuevoProducto(p => ({ ...p, [campo]: e.target.value }))} /></label>)}
+              <label className="stock-form-ancho">Descripción<textarea rows="3" maxLength="16000" value={nuevoProducto.descripcion} onChange={e => setNuevoProducto(p => ({ ...p, descripcion: e.target.value }))} /></label>
               <label>Categoría<select required value={nuevoProducto.categoria_id} onChange={e => setNuevoProducto(p => ({ ...p, categoria_id: e.target.value }))}><option value="">Seleccionar categoría</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
               {[['precio_compra', 'Precio de compra'], ['precio_venta', 'Precio de venta'], ['stock_minimo', 'Stock mínimo']].map(([campo, etiqueta]) => <label key={campo}>{etiqueta}<input type="number" min="0" max="99999999.99" step={campo === 'stock_minimo' ? '1' : '0.01'} required value={nuevoProducto[campo]} onChange={e => setNuevoProducto(p => ({ ...p, [campo]: e.target.value }))} /></label>)}
               <button className="stock-primario" disabled={guardando}>{guardando ? 'Guardando...' : 'Crear producto'}</button><button type="button" disabled={guardando} onClick={() => setNuevoProducto(null)}>Cancelar</button>
@@ -377,8 +385,11 @@ function StockFiable({ sesion }) {
               <option value="">{cargandoLotes ? 'Cargando lotes...' : 'Seleccionar lote existente'}</option>
               {lotesFormulario.map(l => <option key={l.id} value={l.id}>{l.codigo_lote} — stock: {l.stock_actual ?? 0} — vence: {fechaCorta(l.fecha_vencimiento)}</option>)}
             </select>{formulario.producto_id && !cargandoLotes && lotesFormulario.length === 0 && <small>Este producto no tiene lotes activos. Elegí la modalidad de lote nuevo para crearlo con esta entrada.</small>}</label>}
+            {formulario.producto_id && <p className="stock-ayuda stock-form-ancho" role="status">Stock disponible: {stockDisponible ?? 'No disponible'}. El servidor verifica el stock al registrar la operación.</p>}
+            {avisoSalida && <p className="stock-ayuda stock-form-ancho" role="status">{avisoSalida}</p>}
             <label>Cantidad<input type="number" min="1" step="1" required value={formulario.cantidad} onChange={e => setFormulario(f => ({ ...f, cantidad: e.target.value }))} /></label>
-            <label>Motivo<input type="text" maxLength="100" required placeholder={tipoMovimiento === 'ENTRADA' ? 'Compra / reposición' : 'Venta / merma'} value={formulario.motivo} onChange={e => setFormulario(f => ({ ...f, motivo: e.target.value }))} /></label>
+            <label>Motivo<input type="text" list="stock-motivos-sugeridos" maxLength="100" required placeholder={tipoMovimiento === 'ENTRADA' ? 'Compra / reposición' : 'Venta / merma'} value={formulario.motivo} onChange={e => setFormulario(f => ({ ...f, motivo: e.target.value }))} /></label>
+            <datalist id="stock-motivos-sugeridos">{MOTIVOS_MOVIMIENTO[tipoMovimiento].map(motivo => <option key={motivo} value={motivo} />)}</datalist>
             <label className="stock-form-ancho">Observación (opcional)<textarea rows="3" maxLength="255" value={formulario.observacion} onChange={e => setFormulario(f => ({ ...f, observacion: e.target.value }))} /></label>
             <button className="stock-primario" type="submit" disabled={guardando || cargandoLotes}>{guardando ? 'Registrando...' : `Registrar ${tipoMovimiento === 'ENTRADA' ? 'entrada' : 'salida'}`}</button>
           </form>
