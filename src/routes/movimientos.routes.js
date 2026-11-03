@@ -10,8 +10,9 @@ const { permitirRoles } =
     require('../middleware/rol.middleware');
 
 const router = express.Router();
+const { ROLES, ROLES_MOVIMIENTOS } = require('../config/roles');
 
-router.use(autenticar);
+router.use(autenticar, permitirRoles(...ROLES));
 
 router.get(
     '/',
@@ -25,13 +26,13 @@ router.get(
 
 router.post(
     '/entrada',
-    permitirRoles('Dueño'),
+    permitirRoles(...ROLES_MOVIMIENTOS),
     movimientosController.registrarEntrada
 );
 
 router.post(
     '/salida',
-    permitirRoles('Dueño'),
+    permitirRoles(...ROLES_MOVIMIENTOS),
     movimientosController.registrarSalida
 );
 

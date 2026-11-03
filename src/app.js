@@ -32,6 +32,7 @@ app.use('/api/productos', productosRoutes);
 app.use('/api/movimientos', movimientosRoutes);
 app.use('/api/stock', stockRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/usuarios', require('./routes/usuarios.routes'));
 
 app.listen(PORT, () => {
     console.log(`✅ Servidor ejecutándose en http://localhost:${PORT}`);

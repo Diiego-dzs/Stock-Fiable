@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
+const { obtenerUsuarioAutenticado } = require('../services/usuarios.service');
 
-function autenticar(req, res, next) {
+async function autenticar(req, res, next) {
     try {
         const authorization =
             req.headers.authorization;
@@ -30,7 +31,17 @@ function autenticar(req, res, next) {
                 process.env.JWT_SECRET
             );
 
-        req.usuario = usuario;
+        let actual;
+        try {
+            actual = await obtenerUsuarioAutenticado(usuario.id);
+        } catch {
+            return res.status(503).json({ error: 'No se pudo verificar la sesión. Intentá nuevamente.' });
+        }
+        if (!actual || !actual.activo) {
+            return res.status(401).json({ error: 'Cuenta inactiva o inexistente' });
+        }
+        // Use the database role, never a stale role carried by an existing token.
+        req.usuario = actual;
 
         next();
 

@@ -7,19 +7,18 @@ async function registrarEntrada(req, res) {
             cantidad,
             motivo,
             observacion,
-            lote_id
+            lote_id,
+    nuevo_lote
         } = req.body;
 
         if (
             producto_id === undefined ||
             producto_id === null ||
             cantidad === undefined ||
-            cantidad === null ||
-            lote_id === undefined ||
-            lote_id === null
+            cantidad === null
         ) {
             return res.status(400).json({
-                error: 'producto_id, lote_id y cantidad son obligatorios'
+                error: 'producto_id y cantidad son obligatorios'
             });
         }
 
@@ -42,7 +41,8 @@ async function registrarEntrada(req, res) {
                 cantidad: Number(cantidad),
                 motivo,
                 observacion,
-                lote_id: Number(lote_id)
+                lote_id: lote_id == null ? undefined : Number(lote_id),
+                nuevo_lote
             });
 
         res.status(201).json({
@@ -166,6 +166,10 @@ async function obtenerMovimientos(req, res) {
             });
         }
 
+        if (fecha_desde && fecha_hasta && fecha_desde > fecha_hasta) {
+            return res.status(400).json({ error: 'fecha_desde no puede ser posterior a fecha_hasta' });
+        }
+
         if (page !== undefined) {
             const paginaNumero = Number(page);
 
@@ -205,7 +209,8 @@ async function obtenerMovimientos(req, res) {
                 fecha_desde,
                 fecha_hasta,
                 pagina: page,
-                limite
+                limite,
+                exportar: req.query.exportar === '1'
             });
 
         res.json(movimientos);

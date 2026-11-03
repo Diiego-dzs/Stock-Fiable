@@ -1,0 +1,10 @@
+const router = require('express').Router();
+const { autenticar } = require('../middleware/auth.middleware');
+const { permitirRoles } = require('../middleware/rol.middleware');
+const controller = require('../controllers/usuarios.controller');
+router.use(autenticar, permitirRoles('Dueño'));
+router.get('/roles', controller.roles);
+router.get('/', controller.listar);
+router.post('/', controller.crear);
+router.put('/:id', controller.editar);
+module.exports = router;

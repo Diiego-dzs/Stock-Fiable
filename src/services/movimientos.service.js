@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { validarLote, insertarLote } = require('./lotes.service');
 
 async function registrarEntrada({
     producto_id,
@@ -6,9 +7,10 @@ async function registrarEntrada({
     cantidad,
     motivo,
     observacion,
-    lote_id
+    lote_id,
+    nuevo_lote
 }) {
-    if (!cantidad || Number(cantidad) <= 0) {
+    if (!Number.isFinite(Number(cantidad)) || Number(cantidad) <= 0 || Number(cantidad) > 99999999.99 || !/^\d+(\.\d{1,2})?$/.test(String(cantidad))) {
     throw new Error(
         'La cantidad debe ser mayor que 0'
     );
@@ -20,7 +22,7 @@ async function registrarEntrada({
     );
 }
 
-    if (!Number.isInteger(Number(lote_id)) || Number(lote_id) <= 0) {
+    if (nuevo_lote === undefined && (!Number.isInteger(Number(lote_id)) || Number(lote_id) <= 0)) {
     throw new Error(
         'El lote_id debe ser un número entero mayor que 0'
     );
@@ -44,6 +46,10 @@ async function registrarEntrada({
     );
 }
 
+    if (nuevo_lote !== undefined) {
+        if (lote_id !== undefined && lote_id !== null) throw new Error('Elegí lote_id o nuevo_lote, no ambos');
+        validarLote(nuevo_lote);
+    }
     let conexion;
 
     try {
@@ -62,6 +68,10 @@ async function registrarEntrada({
             throw new Error('Producto no encontrado');
         }
 
+        if (nuevo_lote !== undefined) {
+            lote_id = (await insertarLote(conexion, producto_id, nuevo_lote)).id;
+        }
+
         // 2. Verificar que el lote exista y pertenezca al producto
         const lotes = await conexion.query(`
             SELECT
@@ -71,12 +81,13 @@ async function registrarEntrada({
             FROM lotes
             WHERE id = ?
               AND producto_id = ?
+              AND estado = 'activo'
             FOR UPDATE
         `, [lote_id, producto_id]);
 
         if (lotes.length === 0) {
             throw new Error(
-                'El lote no existe o no pertenece al producto'
+                'El lote no existe, no está activo o no pertenece al producto'
             );
         }
 
@@ -367,6 +378,7 @@ async function obtenerMovimientos(filtros = {}) {
             FROM movimientos_stock m
             INNER JOIN productos p
                 ON p.id = m.producto_id
+            LEFT JOIN usuarios u ON u.id = m.usuario_id
         `;
 
         if (condiciones.length > 0) {
@@ -397,6 +409,7 @@ async function obtenerMovimientos(filtros = {}) {
                 p.codigo,
                 p.nombre AS producto,
                 m.usuario_id,
+                u.nombre AS usuario_responsable,
                 m.tipo,
                 m.cantidad,
                 m.motivo,
@@ -406,11 +419,10 @@ async function obtenerMovimientos(filtros = {}) {
             ORDER BY
                 m.fecha DESC,
                 m.id DESC
-            LIMIT ? OFFSET ?
+            ${filtros.exportar ? '' : 'LIMIT ? OFFSET ?'}
         `, [
             ...parametros,
-            limite,
-            offset
+            ...(filtros.exportar ? [] : [limite, offset])
         ]);
 
         const totalPaginas = Math.ceil(total / limite);
@@ -443,6 +455,7 @@ async function obtenerMovimientosPorProducto(productoId) {
                 p.codigo,
                 p.nombre AS producto,
                 m.usuario_id,
+                u.nombre AS usuario_responsable,
                 m.tipo,
                 m.cantidad,
                 m.motivo,
@@ -451,6 +464,7 @@ async function obtenerMovimientosPorProducto(productoId) {
             FROM movimientos_stock m
             INNER JOIN productos p
                 ON p.id = m.producto_id
+            LEFT JOIN usuarios u ON u.id = m.usuario_id
             WHERE m.producto_id = ?
             ORDER BY
                 m.fecha DESC,
@@ -479,6 +493,7 @@ async function obtenerMovimientoPorId(movimientoId) {
                 p.codigo,
                 p.nombre AS producto,
                 m.usuario_id,
+                u.nombre AS usuario_responsable,
                 m.tipo,
                 m.cantidad,
                 m.motivo,
@@ -487,6 +502,7 @@ async function obtenerMovimientoPorId(movimientoId) {
             FROM movimientos_stock m
             INNER JOIN productos p
                 ON p.id = m.producto_id
+            LEFT JOIN usuarios u ON u.id = m.usuario_id
             WHERE m.id = ?
         `, [movimientoId]);
 

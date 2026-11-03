@@ -177,6 +177,7 @@ async function obtenerStockGeneral() {
                 p.nombre AS producto,
                 l.codigo_lote,
                 l.fecha_vencimiento,
+                DATEDIFF(l.fecha_vencimiento, CURDATE()) AS dias_restantes,
                 l.stock_actual,
                 CASE
                     WHEN l.fecha_vencimiento < CURDATE()
@@ -225,6 +226,7 @@ async function obtenerAlertasVencimiento() {
                 p.nombre AS producto,
                 l.codigo_lote,
                 l.fecha_vencimiento,
+                DATEDIFF(l.fecha_vencimiento, CURDATE()) AS dias_restantes,
                 l.stock_actual,
                 CASE
                     WHEN l.fecha_vencimiento < CURDATE()

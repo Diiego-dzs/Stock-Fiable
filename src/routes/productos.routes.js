@@ -8,9 +8,13 @@ const movimientosController =
 const { autenticar } =
     require('../middleware/auth.middleware');
 
+const { permitirRoles } = require('../middleware/rol.middleware');
+const { ROLES } = require('../config/roles');
 const router = express.Router();
 
-router.use(autenticar);
+router.use(autenticar, permitirRoles(...ROLES));
+router.post('/', permitirRoles('Dueño'), productosController.crearProducto);
+router.post('/:id/lotes', permitirRoles('Dueño'), productosController.crearLote);
 
 router.get('/', productosController.obtenerProductos);
 

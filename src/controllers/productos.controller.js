@@ -80,3 +80,21 @@ module.exports = {
     obtenerStockPorProducto,
     obtenerLotesPorProducto
 };
+async function crearProducto(req, res) {
+    try {
+        const producto = await productosService.crearProducto(req.body || {});
+        res.status(201).json({ mensaje: 'Producto creado correctamente', producto });
+    } catch (error) {
+        res.status(error.message.includes('Ya existe') ? 409 : 400).json({ error: error.message });
+    }
+}
+async function crearLote(req, res) {
+    try {
+        const lote = await require('../services/lotes.service').crearLote(Number(req.params.id), req.body);
+        res.status(201).json({ mensaje: 'Lote creado correctamente', lote });
+    } catch (error) {
+        res.status(error.message === 'Producto no encontrado' ? 404 : 400).json({ error: error.message });
+    }
+}
+module.exports.crearProducto = crearProducto;
+module.exports.crearLote = crearLote;
