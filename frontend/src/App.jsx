@@ -3,6 +3,8 @@ import './App.css';
 import { useSesion } from './useSesion.js';
 import { MOTIVOS_MOVIMIENTO, obtenerStockDisponible, avisoStockInsuficiente } from './movimientos.utils.js';
 import Sidebar from './Sidebar.jsx';
+import ProductoFormulario from './ProductoFormulario.jsx';
+import { valoresEdicionProducto, cambiosProducto } from './productos.utils.js';
 import { puedeRegistrarMovimientos } from './permisos.js';
 import Usuarios from './Usuarios.jsx';
 import Alertas from './Alertas.jsx';
@@ -35,6 +37,10 @@ function StockFiable({ sesion }) {
   const solicitudLotes = useRef(0);
   const [categorias, setCategorias] = useState([]);
   const [nuevoProducto, setNuevoProducto] = useState(null);
+  const [productoEnEdicion, setProductoEnEdicion] = useState(null);
+  const [cargandoFormularioProducto, setCargandoFormularioProducto] = useState(false);
+  const baseFormularioProducto = useRef(null);
+  const guardadoProductoEnCurso = useRef(false);
   const [nuevoLote, setNuevoLote] = useState(null);
   const [modalidadLote, setModalidadLote] = useState('existente');
   const [loteEntrada, setLoteEntrada] = useState(loteInicial);
@@ -238,26 +244,51 @@ function StockFiable({ sesion }) {
     if (productoSeleccionado) setLotes(await solicitar(`/productos/${productoSeleccionado.id}/lotes`));
   }
 
-  async function abrirNuevoProducto() {
-    setError(''); setMensaje('');
-    try { setCategorias(await solicitar('/categorias')); setNuevoProducto({ ...productoInicial }); }
-    catch (e) { setError(e.message); }
+  function confirmarDescartarProducto() {
+    return !nuevoProducto || JSON.stringify(nuevoProducto) === JSON.stringify(baseFormularioProducto.current) || window.confirm('Hay cambios sin guardar. ¿Querés descartarlos?');
   }
+  function cancelarProducto() {
+    if (guardando || !confirmarDescartarProducto()) return;
+    setNuevoProducto(null); setProductoEnEdicion(null); baseFormularioProducto.current = null;
+  }
+  async function abrirFormularioProducto(producto = null) {
+    if (guardando || cargandoFormularioProducto || !confirmarDescartarProducto()) return;
+    setCargandoFormularioProducto(true); setError(''); setMensaje('');
+    try {
+      const opciones = await solicitar('/categorias');
+      const valores = producto ? valoresEdicionProducto(producto) : { ...productoInicial };
+      setCategorias(opciones); setProductoEnEdicion(producto); setNuevoProducto(valores);
+      baseFormularioProducto.current = { ...valores };
+      setSeccion('productos');
+    } catch (e) { if (e.name !== 'AbortError') setError(e instanceof TypeError ? 'No se pudo cargar el formulario. Revisá la conexión e intentá nuevamente.' : e.message); }
+    finally { setCargandoFormularioProducto(false); }
+  }
+  function abrirNuevoProducto() { return abrirFormularioProducto(); }
 
   async function guardarAlta(evento, tipo) {
     evento.preventDefault();
-    if (guardando) return;
+    if (guardando || guardadoProductoEnCurso.current) return;
+    const editando = tipo === 'producto' && productoEnEdicion;
+    const cuerpo = editando ? cambiosProducto(nuevoProducto, baseFormularioProducto.current) : tipo === 'producto' ? nuevoProducto : nuevoLote;
+    if (editando && !Object.keys(cuerpo).length) return;
+    guardadoProductoEnCurso.current = true;
     setGuardando(true); setError(''); setMensaje('');
     try {
-      await solicitar(tipo === 'producto' ? '/productos' : `/productos/${productoSeleccionado.id}/lotes`, token, {
-        method: 'POST', body: JSON.stringify(tipo === 'producto' ? nuevoProducto : nuevoLote)
+      const datos = await solicitar(editando ? `/productos/${productoEnEdicion.id}` : tipo === 'producto' ? '/productos' : `/productos/${productoSeleccionado.id}/lotes`, token, {
+        method: editando ? 'PATCH' : 'POST', body: JSON.stringify(cuerpo)
       });
-      if (tipo === 'producto') setNuevoProducto(null); else setNuevoLote(null);
-      setMensaje(tipo === 'producto' ? 'Producto creado correctamente' : 'Lote creado correctamente con stock cero');
+      if (tipo === 'producto') {
+        setNuevoProducto(null); setProductoEnEdicion(null); baseFormularioProducto.current = null;
+        if (editando) {
+          setProductos(lista => lista.map(p => p.id === datos.producto.id ? datos.producto : p));
+          setProductoSeleccionado(p => p?.id === datos.producto.id ? datos.producto : p);
+        }
+      } else setNuevoLote(null);
+      setMensaje(editando ? 'Producto actualizado correctamente' : tipo === 'producto' ? 'Producto creado correctamente' : 'Lote creado correctamente con stock cero');
       try { await refrescarVista(); }
       catch { setError('El registro se guardó, pero no se pudo actualizar la vista. No repitas la operación. Usá Actualizar inventario.'); }
-    } catch (e) { setError(e.message); }
-    finally { setGuardando(false); }
+    } catch (e) { if (e.name !== 'AbortError') setError(e instanceof TypeError ? 'No se pudo confirmar el guardado. Los cambios del formulario se conservaron. Revisá la conexión antes de reintentar.' : e.message); }
+    finally { guardadoProductoEnCurso.current = false; setGuardando(false); }
   }
 
   function camposLote(valor, cambiar) {
@@ -298,8 +329,8 @@ function StockFiable({ sesion }) {
 
   return (
     <div className="app sf-app-con-sidebar">
-      <Sidebar seccion={seccion} nuevoProductoAbierto={usuario?.rol === 'Dueño' && Boolean(nuevoProducto)} usuario={usuario} guardando={guardando}
-        onNavegar={id => { setSeccion(id); setError(''); setMensaje(''); if (id === 'productos') setNuevoProducto(null); }}
+      <Sidebar seccion={seccion} nuevoProductoAbierto={usuario?.rol === 'Dueño' && Boolean(nuevoProducto) && !productoEnEdicion} usuario={usuario} guardando={guardando}
+        onNavegar={id => { setSeccion(id); setError(''); setMensaje(''); }}
         onNuevoProducto={() => { setSeccion('productos'); abrirNuevoProducto(); }}
         onActualizar={async () => { setError(''); try { await refrescarVista(); if (formulario.producto_id) await cargarLotesFormulario(formulario.producto_id); } catch (e) { setError(e.message); } }}
         onCerrarSesion={cerrarSesion} />
@@ -329,17 +360,11 @@ function StockFiable({ sesion }) {
           </section>}
         </>}
         {seccion === 'productos' && <>
-          {usuario?.rol === 'Dueño' && <button className="stock-primario" onClick={abrirNuevoProducto} disabled={guardando}>Nuevo producto</button>}
-          {nuevoProducto && usuario?.rol === 'Dueño' && <section className="stock-panel">
-            <h2>Nuevo producto</h2>
-            <form className="stock-form" onSubmit={e => guardarAlta(e, 'producto')}>
-              {[['codigo', 'Código', 50], ['nombre', 'Nombre', 150], ['marca', 'Marca', 100]].map(([campo, etiqueta, max]) => <label key={campo}>{etiqueta}<input maxLength={max} required={campo === 'codigo' || campo === 'nombre'} value={nuevoProducto[campo]} onChange={e => setNuevoProducto(p => ({ ...p, [campo]: e.target.value }))} /></label>)}
-              <label className="stock-form-ancho">Descripción<textarea rows="3" maxLength="16000" value={nuevoProducto.descripcion} onChange={e => setNuevoProducto(p => ({ ...p, descripcion: e.target.value }))} /></label>
-              <label>Categoría<select required value={nuevoProducto.categoria_id} onChange={e => setNuevoProducto(p => ({ ...p, categoria_id: e.target.value }))}><option value="">Seleccionar categoría</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}</select></label>
-              {[['precio_compra', 'Precio de compra'], ['precio_venta', 'Precio de venta'], ['stock_minimo', 'Stock mínimo']].map(([campo, etiqueta]) => <label key={campo}>{etiqueta}<input type="number" min="0" max="99999999.99" step={campo === 'stock_minimo' ? '1' : '0.01'} required value={nuevoProducto[campo]} onChange={e => setNuevoProducto(p => ({ ...p, [campo]: e.target.value }))} /></label>)}
-              <button className="stock-primario" disabled={guardando}>{guardando ? 'Guardando...' : 'Crear producto'}</button><button type="button" disabled={guardando} onClick={() => setNuevoProducto(null)}>Cancelar</button>
-            </form>
-          </section>}
+          {usuario?.rol === 'Dueño' && <button className="stock-primario" onClick={abrirNuevoProducto} disabled={guardando || cargandoFormularioProducto}>Nuevo producto</button>}
+          {cargandoFormularioProducto && <p role="status">Cargando formulario...</p>}
+          {nuevoProducto && usuario?.rol === 'Dueño' && <ProductoFormulario valores={nuevoProducto} onChange={setNuevoProducto} categorias={categorias}
+            editando={Boolean(productoEnEdicion)} guardando={guardando} onSubmit={e => guardarAlta(e, 'producto')} onCancelar={cancelarProducto}
+            sinCambios={Boolean(productoEnEdicion) && !Object.keys(cambiosProducto(nuevoProducto, baseFormularioProducto.current)).length} />}
           <section className="products-section"><div className="section-header"><h2>Productos</h2><span>{productos.length} registrados</span></div>
             <div className="products-table-container"><table className="products-table"><thead><tr>
               <th>Código</th><th>Producto</th><th>Marca</th><th>Categoría</th><th>Precio venta</th><th>Stock actual</th><th>Stock mínimo</th><th>Estado</th><th>Acción</th>
@@ -347,7 +372,7 @@ function StockFiable({ sesion }) {
               <td>{p.codigo}</td><td>{p.nombre}</td><td>{p.marca || '-'}</td><td>{p.categoria || '-'}</td>
               <td>${Number(p.precio_venta || 0).toLocaleString('es-AR')}</td><td>{p.stock_actual ?? 0}</td>
               <td>{p.stock_minimo}</td><td>{p.estado}</td>
-              <td><button className="detail-button" onClick={() => verDetalleProducto(p)}>Ver detalle</button></td>
+              <td><div className="producto-acciones"><button type="button" className="producto-accion" onClick={() => verDetalleProducto(p)}>Ver detalles</button>{usuario?.rol === 'Dueño' && <button type="button" className="producto-accion" disabled={guardando || cargandoFormularioProducto} onClick={() => abrirFormularioProducto(p)}>Editar</button>}</div></td>
             </tr>)}</tbody></table></div>
           </section>
           {productoSeleccionado && <section className="product-detail stock-panel">
