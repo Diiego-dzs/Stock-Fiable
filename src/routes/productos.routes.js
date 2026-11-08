@@ -14,6 +14,7 @@ const router = express.Router();
 
 router.use(autenticar, permitirRoles(...ROLES));
 router.post('/', permitirRoles('Dueño'), productosController.crearProducto);
+router.patch('/:id', permitirRoles('Dueño'), productosController.editarProducto);
 router.post('/:id/lotes', permitirRoles('Dueño'), productosController.crearLote);
 
 router.get('/', productosController.obtenerProductos);

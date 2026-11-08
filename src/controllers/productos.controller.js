@@ -98,3 +98,13 @@ async function crearLote(req, res) {
 }
 module.exports.crearProducto = crearProducto;
 module.exports.crearLote = crearLote;
+
+async function editarProducto(req, res) {
+    try {
+        const producto = await productosService.editarProducto(Number(req.params.id), req.body);
+        res.json({ mensaje: 'Producto actualizado correctamente', producto });
+    } catch (error) {
+        res.status(error.status || 500).json({ error: error.status ? error.message : 'No se pudo actualizar el producto' });
+    }
+}
+module.exports.editarProducto = editarProducto;

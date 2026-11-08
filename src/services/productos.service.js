@@ -1,6 +1,24 @@
 
 const pool = require('../config/db');
 
+function errorProducto(mensaje, status = 400) {
+    return Object.assign(new Error(mensaje), { status });
+}
+function validarTexto(datos, campo, max, requerido = false) {
+    const valor = datos[campo] ?? '';
+    if (typeof valor !== 'string' || valor.trim().length > max || (requerido && !valor.trim())) throw errorProducto('El campo ' + campo + ' no es válido');
+    return valor.trim() || null;
+}
+function validarCategoria(valor) {
+    const categoria = Number(valor);
+    if (!Number.isInteger(categoria) || categoria <= 0) throw errorProducto('La categoría no es válida');
+    return categoria;
+}
+function validarDecimal(valor, campo) {
+    if (!['number', 'string'].includes(typeof valor) || !/^\d+(\.\d{1,2})?$/.test(String(valor)) || !Number.isFinite(Number(valor)) || Number(valor) > 99999999.99) throw errorProducto('El campo ' + campo + ' debe ser un número no negativo con hasta dos decimales');
+    return Number(valor);
+}
+
 async function obtenerProductos() {
     let conexion;
 
@@ -136,21 +154,15 @@ module.exports = {
 };
 
 async function crearProducto(datos) {
-    const texto = (campo, max, requerido = false) => {
-        const valor = datos[campo] ?? '';
-        if (typeof valor !== 'string' || valor.trim().length > max || (requerido && !valor.trim())) throw new Error('El campo ' + campo + ' no es válido');
-        return valor.trim() || null;
-    };
+    const texto = (campo, max, requerido = false) => validarTexto(datos, campo, max, requerido);
     const codigo = texto('codigo', 50, true);
     const nombre = texto('nombre', 150, true);
     const descripcion = texto('descripcion', 16000);
     const marca = texto('marca', 100);
-    const categoria = Number(datos.categoria_id);
-    if (!Number.isInteger(categoria) || categoria <= 0) throw new Error('La categoría no es válida');
+    const categoria = validarCategoria(datos.categoria_id);
     const valores = ['precio_compra', 'precio_venta', 'stock_minimo'].map(campo => {
         const valor = datos[campo] ?? 0;
-        if (!['number', 'string'].includes(typeof valor) || !/^\d+(\.\d{1,2})?$/.test(String(valor)) || !Number.isFinite(Number(valor)) || Number(valor) > 99999999.99) throw new Error('El campo ' + campo + ' debe ser un número no negativo con hasta dos decimales');
-        return Number(valor);
+        return validarDecimal(valor, campo);
     });
     let conexion;
     try {
@@ -167,3 +179,52 @@ async function crearProducto(datos) {
     }
 }
 module.exports.crearProducto = crearProducto;
+
+async function editarProducto(id, datos) {
+    if (!Number.isInteger(id) || id <= 0) throw errorProducto('El ID del producto no es válido');
+    const permitidos = ['nombre', 'descripcion', 'categoria_id', 'codigo', 'stock_minimo'];
+    if (!datos || typeof datos !== 'object' || Array.isArray(datos) || !Object.keys(datos).length) throw errorProducto('Enviá al menos un campo editable');
+    if (Object.keys(datos).some(campo => !permitidos.includes(campo))) throw errorProducto('La solicitud contiene campos desconocidos o no editables');
+    const cambios = {};
+    for (const campo of Object.keys(datos)) {
+        if (campo === 'codigo' || campo === 'nombre') cambios[campo] = validarTexto(datos, campo, campo === 'codigo' ? 50 : 150, true);
+        if (campo === 'descripcion') cambios[campo] = validarTexto(datos, campo, 16000);
+        if (campo === 'stock_minimo') cambios[campo] = validarDecimal(datos[campo], campo);
+        if (campo === 'categoria_id') {
+            if (!['string', 'number'].includes(typeof datos[campo])) throw errorProducto('La categoría no es válida');
+            cambios[campo] = validarCategoria(datos[campo]);
+        }
+    }
+    let conexion;
+    try {
+        conexion = await pool.getConnection();
+        await conexion.beginTransaction();
+        const actuales = await conexion.query('SELECT id FROM productos WHERE id = ? FOR UPDATE', [id]);
+        if (!actuales.length) throw errorProducto('Producto no encontrado', 404);
+        if (Object.hasOwn(cambios, 'categoria_id')) {
+            const categorias = await conexion.query('SELECT id FROM categorias WHERE id = ?', [cambios.categoria_id]);
+            if (!categorias.length) throw errorProducto('Categoría no encontrada');
+        }
+        if (Object.hasOwn(cambios, 'codigo')) {
+            const duplicados = await conexion.query('SELECT id FROM productos WHERE codigo = ? AND id <> ? LIMIT 1', [cambios.codigo, id]);
+            if (duplicados.length) throw errorProducto('Ya existe un producto con ese código', 409);
+        }
+        const campos = Object.keys(cambios);
+        await conexion.query(`UPDATE productos SET ${campos.map(campo => campo + ' = ?').join(', ')}, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?`, [...Object.values(cambios), id]);
+        const productos = await conexion.query(`
+            SELECT p.*, c.nombre AS categoria,
+                COALESCE((SELECT SUM(l.stock_actual) FROM lotes l WHERE l.producto_id = p.id AND l.estado = 'activo'), 0) AS stock_actual
+            FROM productos p INNER JOIN categorias c ON c.id = p.categoria_id WHERE p.id = ?
+        `, [id]);
+        await conexion.commit();
+        return productos[0];
+    } catch (error) {
+        if (conexion) await conexion.rollback();
+        if (error.code === 'ER_DUP_ENTRY' || error.errno === 1062) throw errorProducto('Ya existe un producto con ese código', 409);
+        if (error.errno === 1452) throw errorProducto('Categoría no encontrada');
+        throw error;
+    } finally {
+        if (conexion) conexion.release();
+    }
+}
+module.exports.editarProducto = editarProducto;
