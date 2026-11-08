@@ -9,6 +9,8 @@ import { puedeRegistrarMovimientos } from './permisos.js';
 import Usuarios from './Usuarios.jsx';
 import Alertas from './Alertas.jsx';
 import Reportes from './Reportes.jsx';
+import PanelPrincipal from './PanelPrincipal.jsx';
+import { crearDatosPanel } from './panel.datos.js';
 
 const API_URL = 'http://localhost:3000/api';
 const filtrosIniciales = { tipo: '', producto_id: '', fecha_desde: '', fecha_hasta: '' };
@@ -35,6 +37,10 @@ function App() {
 function StockFiable({ sesion }) {
   const { token, usuario } = sesion;
   const solicitudLotes = useRef(0);
+  const [datosPanel] = useState(() => crearDatosPanel(sesion.solicitar));
+  const [inventario, setInventario] = useState({ cargando: true, error: '' });
+  const inventarioPendiente = useRef(null);
+  useEffect(() => () => datosPanel.invalidar(), [datosPanel]);
   const [categorias, setCategorias] = useState([]);
   const [nuevoProducto, setNuevoProducto] = useState(null);
   const [productoEnEdicion, setProductoEnEdicion] = useState(null);
@@ -82,16 +88,32 @@ function StockFiable({ sesion }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, sesion.estado]);
 
-  async function actualizarInventario(tokenActual = token) {
-    const [nuevoResumen, nuevosProductos] = await Promise.all([
-      solicitar('/stock/resumen', tokenActual),
-      solicitar('/productos', tokenActual)
-    ]);
-    setResumen(nuevoResumen);
-    setProductos(nuevosProductos);
-    setProductoSeleccionado(anterior => anterior
-      ? nuevosProductos.find(p => p.id === anterior.id) || null
-      : null);
+  function actualizarInventario(tokenActual = token, { forzar = false } = {}) {
+    if (inventarioPendiente.current && !forzar) return inventarioPendiente.current.promesa;
+    inventarioPendiente.current?.controller.abort();
+    const controller = new AbortController();
+    datosPanel.invalidar();
+    setInventario({ cargando: true, error: '' });
+    const tarea = Promise.all([
+      solicitar('/stock/resumen', tokenActual, { signal: controller.signal }),
+      solicitar('/productos', tokenActual, { signal: controller.signal })
+    ]).then(([nuevoResumen, nuevosProductos]) => {
+      if (controller.signal.aborted) throw new DOMException('Inventario obsoleto', 'AbortError');
+      setResumen(nuevoResumen); setProductos(nuevosProductos);
+      setProductoSeleccionado(anterior => anterior ? nuevosProductos.find(p => p.id === anterior.id) || null : null);
+      setInventario({ cargando: false, error: '' });
+    }).catch(e => {
+      if (!controller.signal.aborted && e.name !== 'AbortError') setInventario({ cargando: false, error: e.message });
+      throw e;
+    }).finally(() => { if (inventarioPendiente.current?.promesa === tarea) inventarioPendiente.current = null; });
+    inventarioPendiente.current = { promesa: tarea, controller };
+    return tarea;
+  }
+
+  function verProductoDesdePanel(id) {
+    const producto = productos.find(p => Number(p.id) === Number(id));
+    if (!producto) { setError('El producto no está disponible. Actualizá el inventario para reintentar.'); return; }
+    setSeccion('productos'); setMensaje(''); verDetalleProducto(producto);
   }
 
   async function iniciarSesion(evento) {
@@ -191,7 +213,7 @@ function StockFiable({ sesion }) {
       setModalidadLote('existente');
       setLoteEntrada(loteInicial);
       try {
-      await actualizarInventario();
+      await actualizarInventario(token, { forzar: true });
       if (productoSeleccionado) {
         setLotes(await solicitar(`/productos/${productoSeleccionado.id}/lotes`));
       }
@@ -240,7 +262,7 @@ function StockFiable({ sesion }) {
   }
 
   async function refrescarVista() {
-    await actualizarInventario();
+    await actualizarInventario(token, { forzar: true });
     if (productoSeleccionado) setLotes(await solicitar(`/productos/${productoSeleccionado.id}/lotes`));
   }
 
@@ -340,25 +362,16 @@ function StockFiable({ sesion }) {
         {mensaje && <div className="stock-exito" role="status">{mensaje}</div>}
         {seccion === 'usuarios' && usuario?.rol === 'Dueño' && <Usuarios solicitarApi={sesion.solicitar} token={token} apiUrl={API_URL} usuarioActual={usuario} onUsuarioActualizado={() => sesion.sincronizar({ forzar: true })} />}
         {seccion === 'reportes' && <Reportes solicitarApi={sesion.solicitar} token={token} apiUrl={API_URL} />}
-        {seccion === 'alertas' && <Alertas solicitarApi={sesion.solicitar} token={token} apiUrl={API_URL} onVerProducto={id => {
+        {seccion === 'alertas' && <Alertas datosPanel={datosPanel} solicitarApi={sesion.solicitar} token={token} apiUrl={API_URL} onVerProducto={id => {
           const producto = productos.find(p => Number(p.id) === Number(id));
           if (!producto) { setError('El producto no está disponible. Actualizá el inventario para reintentar.'); return; }
           setSeccion('productos');
           setMensaje('');
           verDetalleProducto(producto);
         }} />}
-        {seccion === 'panel' && <>
-          <section className="welcome"><h2>Panel principal</h2><p>Bienvenido al sistema de gestión de inventario.</p></section>
-          {!resumen ? <p>Cargando inventario...</p> : <section className="dashboard">
-            {[
-              ['Productos', resumen.total_productos, 'Productos registrados'],
-              ['Unidades en stock', resumen.unidades_totales, 'Unidades disponibles'],
-              ['Stock bajo', resumen.productos_stock_bajo, 'Necesitan reposición'],
-              ['Sin stock', resumen.productos_sin_stock, 'Sin unidades disponibles'],
-              ['Stock normal', resumen.productos_stock_normal, 'Stock suficiente']
-            ].map(([titulo, valor, subtitulo]) => <div className="card" key={titulo}><h3>{titulo}</h3><p>{valor}</p><small>{subtitulo}</small></div>)}
-          </section>}
-        </>}
+        {seccion === 'panel' && <PanelPrincipal resumen={resumen} productos={productos} inventario={inventario} datosPanel={datosPanel}
+          onNavegar={id => { setSeccion(id); setError(''); setMensaje(''); }} onVerProducto={verProductoDesdePanel}
+          onReintentarInventario={() => { void actualizarInventario().catch(() => {}); }} />}
         {seccion === 'productos' && <>
           {usuario?.rol === 'Dueño' && <button className="stock-primario" onClick={abrirNuevoProducto} disabled={guardando || cargandoFormularioProducto}>Nuevo producto</button>}
           {cargandoFormularioProducto && <p role="status">Cargando formulario...</p>}

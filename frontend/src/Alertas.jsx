@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { agruparAlertas, fechaVencimiento } from './alertas.utils.js';
 
-export default function Alertas({ token, apiUrl, solicitarApi, onVerProducto }) {
+export default function Alertas({ token, apiUrl, solicitarApi, onVerProducto, datosPanel }) {
   const [dias, setDias] = useState(30);
   const [recarga, setRecarga] = useState(0);
   const [datos, setDatos] = useState(null);
@@ -13,6 +13,7 @@ export default function Alertas({ token, apiUrl, solicitarApi, onVerProducto }) 
     async function cargar() {
       try {
         const resultados = await Promise.all(['/stock/alertas', '/stock/alertas-vencimiento'].map(async ruta => {
+          if (ruta === '/stock/alertas-vencimiento' && datosPanel) return datosPanel.cargar('vencimientos');
           return solicitarApi(ruta, { signal: controller.signal });
         }));
         if (!controller.signal.aborted) setDatos({ stock: resultados[0], vencimientos: resultados[1] });
@@ -24,7 +25,7 @@ export default function Alertas({ token, apiUrl, solicitarApi, onVerProducto }) 
     }
     cargar();
     return () => controller.abort();
-  }, [token, apiUrl, solicitarApi, recarga]);
+  }, [token, apiUrl, solicitarApi, recarga, datosPanel]);
 
   const grupos = datos ? agruparAlertas(datos.stock, datos.vencimientos, dias) : null;
   const categorias = [
@@ -36,7 +37,7 @@ export default function Alertas({ token, apiUrl, solicitarApi, onVerProducto }) 
 
   return <section className="stock-panel alertas-panel" aria-labelledby="titulo-alertas" aria-busy={cargando}>
     <div className="section-header"><h2 id="titulo-alertas">Alertas de inventario</h2>
-      <button className="stock-primario" disabled={cargando} onClick={() => { setCargando(true); setError(''); setRecarga(n => n + 1); }}>Actualizar alertas</button>
+      <button className="stock-primario" disabled={cargando} onClick={() => { datosPanel?.invalidar(); setCargando(true); setError(''); setRecarga(n => n + 1); }}>Actualizar alertas</button>
     </div>
     <p className="stock-ayuda">Stock de productos activos y vencimientos de lotes activos con unidades disponibles. Los próximos vencimientos incluyen hoy; los vencidos se muestran por separado.</p>
     <div className="stock-tabs" role="group" aria-label="Plazo de próximos vencimientos">
