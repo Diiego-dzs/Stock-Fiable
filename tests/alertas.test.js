@@ -21,6 +21,7 @@ test('alertas reutilizan consultas de solo lectura y liberan conexiones', async 
   assert.ok(consultas.every(sql => sql.trim().startsWith('SELECT')));
   assert.match(consultas[0], /HAVING\s+COALESCE\(SUM\(l.stock_actual\), 0\) <= p.stock_minimo/);
   for (const sql of consultas.slice(1)) {
+    assert.doesNotMatch(sql, /p\.estado\s*=/, 'Los vencimientos conservan productos inactivos');
     assert.match(sql, /DATEDIFF\(l.fecha_vencimiento, CURDATE\(\)\) AS dias_restantes/);
     assert.match(sql, /l.estado = 'activo'/);
     assert.match(sql, /l.stock_actual > 0/);

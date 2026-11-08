@@ -22,7 +22,7 @@ async function query(sql, params = []) {
   if (sql.includes('FROM usuarios')) return cuentas;
   if (sql.includes('COUNT(*) AS total_productos')) return [{ total_productos: 1, unidades_totales: 10, productos_sin_stock: 0, productos_stock_bajo: 0, productos_stock_normal: 1 }];
   if (sql.includes('COUNT(*) AS total')) return [{ total: 0 }];
-  if (sql.includes('FROM productos') && sql.includes('WHERE id = ?')) return [{ id: 1, nombre: 'Producto' }];
+  if (sql.includes('FROM productos') && sql.includes('WHERE id = ?')) return [{ id: 1, nombre: 'Producto', estado: 'activo' }];
   if (sql.includes('FROM lotes') && sql.includes('FOR UPDATE')) return lotes.filter(l => l.estado === 'activo' && (sql.includes('WHERE id = ?') ? l.id === params[0] && l.producto_id === params[1] : l.producto_id === params[0] && l.stock_actual > 0));
   if (sql.includes('INSERT INTO lotes')) {
     const id = lotes.length + 1;

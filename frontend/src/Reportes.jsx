@@ -66,7 +66,7 @@ export default function Reportes({ token, apiUrl, solicitarApi }) {
       {tipo === 'vencimientos' && <label>Vencidos y próximos vencimientos<select value={filtros.dias} onChange={e => campo('dias', e.target.value)}>{[7, 15, 30].map(n => <option key={n} value={n}>Hasta {n} días (incluye vencidos)</option>)}</select></label>}
       <button className="stock-primario" disabled={cargando || exportando}>Aplicar filtros / actualizar</button>
     </form>
-    <p className="stock-ayuda">Las exportaciones usan los filtros aplicados. Movimientos incluye todos los registros coincidentes, aunque la vista esté paginada.</p>
+    <p className="stock-ayuda">El reporte de stock incluye productos activos e inactivos; el resumen operativo del Panel considera solo activos. Las exportaciones usan los filtros aplicados. Movimientos incluye todos los registros coincidentes, aunque la vista esté paginada.</p>
     <div className="stock-tabs"><button disabled={cargando || exportando || !datos || !filas.length} onClick={() => exportar('csv')}>Descargar CSV</button><button disabled={cargando || exportando || !datos || !filas.length} onClick={() => exportar('xlsx')}>Descargar Excel</button></div>
     {error && <p className="error-message" role="alert">{error}</p>}
     {exportando && <p role="status">Preparando exportación completa...</p>}

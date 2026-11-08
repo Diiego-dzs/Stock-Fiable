@@ -37,6 +37,8 @@ function App() {
 function StockFiable({ sesion }) {
   const { token, usuario } = sesion;
   const solicitudLotes = useRef(0);
+  const cambioEstadoEnCurso = useRef(false);
+  const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [datosPanel] = useState(() => crearDatosPanel(sesion.solicitar));
   const [inventario, setInventario] = useState({ cargando: true, error: '' });
   const inventarioPendiente = useRef(null);
@@ -100,6 +102,14 @@ function StockFiable({ sesion }) {
     ]).then(([nuevoResumen, nuevosProductos]) => {
       if (controller.signal.aborted) throw new DOMException('Inventario obsoleto', 'AbortError');
       setResumen(nuevoResumen); setProductos(nuevosProductos);
+      if (formulario.producto_id && !nuevosProductos.some(p => String(p.id) === String(formulario.producto_id) && p.estado === 'activo')) {
+        ++solicitudLotes.current;
+        setLotesFormulario([]); setCargandoLotes(false);
+      }
+      setFormulario(anterior => {
+        if (!anterior.producto_id || nuevosProductos.some(p => String(p.id) === String(anterior.producto_id) && p.estado === 'activo')) return anterior;
+        return { ...formularioInicial };
+      });
       setProductoSeleccionado(anterior => anterior ? nuevosProductos.find(p => p.id === anterior.id) || null : null);
       setInventario({ cargando: false, error: '' });
     }).catch(e => {
@@ -261,6 +271,23 @@ function StockFiable({ sesion }) {
     cargarHistorial(1, filtros);
   }
 
+  async function cambiarEstadoProducto(producto) {
+    if (cambioEstadoEnCurso.current || guardando) return;
+    const estado = producto.estado === 'activo' ? 'inactivo' : 'activo';
+    if (estado === 'inactivo' && !window.confirm('¿Desactivar ' + producto.nombre + '?' + (Number(producto.stock_actual) > 0 ? ' Sus ' + producto.stock_actual + ' unidades permanecerán almacenadas, pero no podrán registrarse entradas ni salidas hasta reactivarlo.' : ' No se podrán registrar entradas ni salidas hasta reactivarlo.'))) return;
+    cambioEstadoEnCurso.current = true; setCambiandoEstado(true); setError(''); setMensaje('');
+    try {
+      const datos = await solicitar('/productos/' + producto.id + '/estado', token, { method: 'PATCH', body: JSON.stringify({ estado }) });
+      setProductos(lista => lista.map(p => p.id === datos.producto.id ? datos.producto : p));
+      setProductoSeleccionado(p => p?.id === datos.producto.id ? datos.producto : p);
+      setNuevoLote(null);
+      setMensaje('Producto ' + (estado === 'activo' ? 'activado' : 'desactivado') + ' correctamente.');
+      try { await refrescarVista(); }
+      catch { setError('El estado se guardó, pero no se pudo actualizar la vista. Usá Actualizar inventario para refrescarla.'); }
+    } catch (e) { if (e.name !== 'AbortError') setError(e.message); }
+    finally { cambioEstadoEnCurso.current = false; setCambiandoEstado(false); }
+  }
+
   async function refrescarVista() {
     await actualizarInventario(token, { forzar: true });
     if (productoSeleccionado) setLotes(await solicitar(`/productos/${productoSeleccionado.id}/lotes`));
@@ -384,8 +411,8 @@ function StockFiable({ sesion }) {
             </tr></thead><tbody>{productos.map(p => <tr key={p.id}>
               <td>{p.codigo}</td><td>{p.nombre}</td><td>{p.marca || '-'}</td><td>{p.categoria || '-'}</td>
               <td>${Number(p.precio_venta || 0).toLocaleString('es-AR')}</td><td>{p.stock_actual ?? 0}</td>
-              <td>{p.stock_minimo}</td><td>{p.estado}</td>
-              <td><div className="producto-acciones"><button type="button" className="producto-accion" onClick={() => verDetalleProducto(p)}>Ver detalles</button>{usuario?.rol === 'Dueño' && <button type="button" className="producto-accion" disabled={guardando || cargandoFormularioProducto} onClick={() => abrirFormularioProducto(p)}>Editar</button>}</div></td>
+              <td>{p.stock_minimo}</td><td><span className={`producto-estado ${p.estado}`}>{p.estado}</span></td>
+              <td><div className="producto-acciones"><button type="button" className="producto-accion" onClick={() => verDetalleProducto(p)}>Ver detalles</button>{usuario?.rol === 'Dueño' && <button type="button" className="producto-accion" disabled={guardando || cargandoFormularioProducto} onClick={() => abrirFormularioProducto(p)}>Editar</button>}{usuario?.rol === 'Dueño' && <button type="button" className="producto-accion" disabled={cambiandoEstado || guardando} onClick={() => cambiarEstadoProducto(p)}>{cambiandoEstado ? 'Procesando...' : p.estado === 'activo' ? 'Desactivar' : 'Activar'}</button>}</div></td>
             </tr>)}</tbody></table></div>
           </section>
           {productoSeleccionado && <section className="product-detail stock-panel">
@@ -397,8 +424,8 @@ function StockFiable({ sesion }) {
               <div className="detail-card"><span>Estado</span><strong>{productoSeleccionado.estado}</strong></div>
             </div>
             <h3>Lotes</h3>
-            {usuario?.rol === 'Dueño' && <button className="stock-primario" disabled={guardando} onClick={() => setNuevoLote({ ...loteInicial })}>Crear lote</button>}
-            {nuevoLote && usuario?.rol === 'Dueño' && <form className="stock-form" onSubmit={e => guardarAlta(e, 'lote')}>
+            {usuario?.rol === 'Dueño' && productoSeleccionado.estado === 'activo' && <button className="stock-primario" disabled={guardando || cambiandoEstado} onClick={() => setNuevoLote({ ...loteInicial })}>Crear lote</button>}
+            {nuevoLote && productoSeleccionado.estado === 'activo' && usuario?.rol === 'Dueño' && <form className="stock-form" onSubmit={e => guardarAlta(e, 'lote')}>
               {camposLote(nuevoLote, setNuevoLote)}
               <p className="stock-ayuda stock-form-ancho">El lote se crea con stock cero. Registrá una entrada para incorporar mercadería.</p>
               <button className="stock-primario" disabled={guardando}>{guardando ? 'Guardando...' : 'Crear lote'}</button><button type="button" disabled={guardando} onClick={() => setNuevoLote(null)}>Cancelar</button>
@@ -415,7 +442,7 @@ function StockFiable({ sesion }) {
             <button className={tipoMovimiento === 'SALIDA' ? 'activo' : ''} onClick={() => cambiarTipoMovimiento('SALIDA')}>Salida</button></div>
           <form className="stock-form" onSubmit={registrarMovimiento}>
             <label>Producto<select value={formulario.producto_id} onChange={e => cambiarProductoMovimiento(e.target.value)} required>
-              <option value="">Seleccionar producto</option>{productos.map(p => <option key={p.id} value={p.id}>{p.codigo} — {p.nombre} (stock: {p.stock_actual ?? 0})</option>)}
+              <option value="">Seleccionar producto</option>{productos.filter(p => p.estado === 'activo').map(p => <option key={p.id} value={p.id}>{p.codigo} — {p.nombre} (stock: {p.stock_actual ?? 0})</option>)}
             </select></label>
             {tipoMovimiento === 'ENTRADA' && <label>Modalidad de lote<select value={modalidadLote} onChange={e => { setModalidadLote(e.target.value); setFormulario(f => ({ ...f, lote_id: '' })); }}><option value="existente">Usar lote existente</option><option value="nuevo">Crear lote nuevo con esta entrada</option></select></label>}
             {tipoMovimiento === 'ENTRADA' && modalidadLote === 'nuevo' && camposLote(loteEntrada, setLoteEntrada)}

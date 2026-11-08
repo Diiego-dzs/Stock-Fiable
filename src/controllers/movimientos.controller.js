@@ -56,7 +56,7 @@ async function registrarEntrada(req, res) {
             error.message
         );
 
-        res.status(400).json({
+        res.status(error.status || 400).json({
             error: error.message
         });
     }
@@ -114,7 +114,7 @@ async function registrarSalida(req, res) {
             error.message
         );
 
-        res.status(400).json({
+        res.status(error.status || 400).json({
             error: error.message
         });
     }

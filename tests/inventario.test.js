@@ -13,7 +13,7 @@ const connection = {
     if (sql.includes('UPDATE lotes') && failUpdate) throw new Error('simulated update failure');
     if (sql.includes('INSERT')) return { insertId: 42n };
     if (sql.includes("AND stock_actual > 0")) return [{ id: 1, stock_actual: 3 }, { id: 2, stock_actual: 4 }];
-    return [{ id: 42, stock_actual: 0 }];
+    return [{ id: 42, stock_actual: 0, estado: 'activo' }];
   }
 };
 require.cache[require.resolve('../src/config/db')] = { exports: { getConnection: async () => connection } };
