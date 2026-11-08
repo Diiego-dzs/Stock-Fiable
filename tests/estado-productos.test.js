@@ -13,6 +13,16 @@ async function query(sql, params = []) {
  if (q.startsWith('SELECT id, estado FROM productos')) return params[0] === 1 ? [{ ...producto }] : [];
  if (q.startsWith('UPDATE productos SET estado')) { producto.estado = params[0]; producto.fecha_actualizacion = 'actualizada'; return {}; }
  if (q.startsWith('SELECT p.*')) return [{ ...producto }];
+ if (q.includes('COUNT(*) AS total_productos')) {
+  assert.ok(q.includes("p.estado = 'activo'"));
+  const activo = producto.estado === 'activo' ? 1 : 0;
+  return [{ total_productos: activo, unidades_totales: activo * 7, productos_stock_normal: activo, productos_stock_bajo: 0, productos_sin_stock: 0 }];
+ }
+ if (q.includes('AS dias_restantes') && q.includes('FROM lotes')) {
+  assert.doesNotMatch(q, /p\.estado\s*=/);
+  return [{ id: 1, producto_id: 1, producto: producto.nombre, codigo_lote: 'ALMACENADO', dias_restantes: -1, stock_actual: 3, alerta: 'VENCIDO' }];
+ }
+
  if (q.includes('FROM lotes') && q.includes('FOR UPDATE')) return lotes;
  if (q.includes('INSERT INTO')) return { insertId: 12n };
  if (q.startsWith('UPDATE lotes')) return {};
@@ -86,4 +96,36 @@ test('reportes incluyen inactivos y distinguen estado del producto y stock en CS
  const matriz=matrizReporte('stock',filas); assert.deepEqual(matriz[0].slice(-2),['Estado del producto','Estado del stock']); assert.deepEqual(matriz[1].slice(-2),['inactivo','Stock normal']);
  assert.match(generarCSV(matriz),/inactivo/); assert.equal(celdasExcel(matriz)[1][5].value,'inactivo');
  assert.equal(filtrarVencimientos([{producto_estado:'inactivo',dias_restantes:-1}],7).length,1);
+});
+
+
+test('integración estado y Panel: resumen, alertas y carga compartida tras desactivar y reactivar', async () => {
+ reset();
+ const copia = structuredClone({ lotes, historial });
+ const stock = require('../src/services/stock.service');
+ const { distribucionStock, alertasProductos } = await import('../frontend/src/panel.utils.js');
+ const { agruparAlertas } = await import('../frontend/src/alertas.utils.js');
+ const { crearDatosPanel } = await import('../frontend/src/panel.datos.js');
+ let solicitudesMovimientos = 0;
+ const compartidos = crearDatosPanel(async ruta => {
+  if (ruta.includes('vencimiento')) return stock.obtenerAlertasVencimiento();
+  solicitudesMovimientos++; return { movimientos: structuredClone(historial) };
+ });
+ await Promise.all([compartidos.cargar('movimientos'), compartidos.cargar('vencimientos')]);
+ for (const estado of ['inactivo', 'activo']) {
+  const actualizado = await productos.cambiarEstadoProducto(1, { estado });
+  // The shared inventory refresh invalidates panel resources after a successful state change.
+  compartidos.invalidar();
+  assert.equal(compartidos.getSnapshot().movimientos.datos, null);
+  const [resumen, vencimientos] = await Promise.all([stock.obtenerResumenStock(), compartidos.cargar('vencimientos'), compartidos.cargar('movimientos')]);
+  assert.equal(resumen.total_productos, estado === 'activo' ? 1 : 0);
+  assert.equal(resumen.unidades_totales, estado === 'activo' ? 7 : 0);
+  assert.equal(distribucionStock(resumen)[0].cantidad, estado === 'activo' ? 1 : 0);
+  assert.equal(alertasProductos([{ ...actualizado, stock_minimo: 10 }]).length, estado === 'activo' ? 1 : 0);
+  const grupos = agruparAlertas([], vencimientos, 30);
+  assert.equal(grupos.vencidos.length, 1);
+  assert.deepEqual(compartidos.getSnapshot().movimientos.datos.movimientos, historial);
+ }
+ assert.equal(solicitudesMovimientos, 3);
+ assert.deepEqual({ lotes, historial }, copia);
 });
