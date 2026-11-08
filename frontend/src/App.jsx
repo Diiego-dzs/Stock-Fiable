@@ -1,10 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { useSesion } from './useSesion.js';
 import { MOTIVOS_MOVIMIENTO, obtenerStockDisponible, avisoStockInsuficiente } from './movimientos.utils.js';
 import Sidebar from './Sidebar.jsx';
 import ProductoFormulario from './ProductoFormulario.jsx';
-import { valoresEdicionProducto, cambiosProducto } from './productos.utils.js';
+import { valoresEdicionProducto, cambiosProducto, FILTROS_PRODUCTOS_INICIALES, filtrarProductos, categoriasProductos } from './productos.utils.js';
+import ProductosFiltros from './ProductosFiltros.jsx';
 import { puedeRegistrarMovimientos } from './permisos.js';
 import Usuarios from './Usuarios.jsx';
 import Alertas from './Alertas.jsx';
@@ -58,6 +59,9 @@ function StockFiable({ sesion }) {
   const seccion = (seccionElegida === 'usuarios' && usuario?.rol !== 'Dueño') || (seccionElegida === 'registrar' && !puedeRegistrarMovimientos(usuario?.rol)) ? 'panel' : seccionElegida;
   const [resumen, setResumen] = useState(null);
   const [productos, setProductos] = useState([]);
+  const [filtrosProductos, setFiltrosProductos] = useState({ ...FILTROS_PRODUCTOS_INICIALES });
+  const productosVisibles = useMemo(() => filtrarProductos(productos, filtrosProductos), [productos, filtrosProductos]);
+  const categoriasFiltro = useMemo(() => categoriasProductos(productos), [productos]);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [lotes, setLotes] = useState([]);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
@@ -406,9 +410,13 @@ function StockFiable({ sesion }) {
             editando={Boolean(productoEnEdicion)} guardando={guardando} onSubmit={e => guardarAlta(e, 'producto')} onCancelar={cancelarProducto}
             sinCambios={Boolean(productoEnEdicion) && !Object.keys(cambiosProducto(nuevoProducto, baseFormularioProducto.current)).length} />}
           <section className="products-section"><div className="section-header"><h2>Productos</h2><span>{productos.length} registrados</span></div>
+            <ProductosFiltros filtros={filtrosProductos} onChange={setFiltrosProductos} categorias={categoriasFiltro} cantidad={productosVisibles.length} total={productos.length} />
+            <p className="productos-filtros-ayuda">Los filtros solo afectan esta tabla. Si un producto editado o actualizado deja de coincidir, seguirá disponible en el inventario y en su detalle.</p>
+            {inventario.cargando && <p role="status">Actualizando productos...</p>}
+            {!inventario.cargando && productosVisibles.length === 0 && <p>{productos.length === 0 ? 'No hay productos registrados.' : 'No hay productos que coincidan con los filtros. Probá cambiar los criterios o limpiar filtros.'}</p>}
             <div className="products-table-container"><table className="products-table"><thead><tr>
               <th>Código</th><th>Producto</th><th>Marca</th><th>Categoría</th><th>Precio venta</th><th>Stock actual</th><th>Stock mínimo</th><th>Estado</th><th>Acción</th>
-            </tr></thead><tbody>{productos.map(p => <tr key={p.id}>
+            </tr></thead><tbody>{productosVisibles.map(p => <tr key={p.id}>
               <td>{p.codigo}</td><td>{p.nombre}</td><td>{p.marca || '-'}</td><td>{p.categoria || '-'}</td>
               <td>${Number(p.precio_venta || 0).toLocaleString('es-AR')}</td><td>{p.stock_actual ?? 0}</td>
               <td>{p.stock_minimo}</td><td><span className={`producto-estado ${p.estado}`}>{p.estado}</span></td>
