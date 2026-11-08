@@ -93,7 +93,7 @@ async function crearLote(req, res) {
         const lote = await require('../services/lotes.service').crearLote(Number(req.params.id), req.body);
         res.status(201).json({ mensaje: 'Lote creado correctamente', lote });
     } catch (error) {
-        res.status(error.message === 'Producto no encontrado' ? 404 : 400).json({ error: error.message });
+        res.status(error.status || (error.message === 'Producto no encontrado' ? 404 : 400)).json({ error: error.message });
     }
 }
 module.exports.crearProducto = crearProducto;
@@ -108,3 +108,14 @@ async function editarProducto(req, res) {
     }
 }
 module.exports.editarProducto = editarProducto;
+
+async function cambiarEstadoProducto(req, res) {
+ try {
+  if (!/^[1-9]\d*$/.test(req.params.id)) return res.status(400).json({ error: 'El ID del producto no es válido' });
+  const producto = await productosService.cambiarEstadoProducto(Number(req.params.id), req.body);
+  res.json({ mensaje: 'Estado del producto actualizado correctamente', producto });
+ } catch (error) {
+  res.status(error.status || 500).json({ error: error.status ? error.message : 'No se pudo actualizar el estado del producto' });
+ }
+}
+module.exports.cambiarEstadoProducto = cambiarEstadoProducto;

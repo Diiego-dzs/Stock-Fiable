@@ -35,7 +35,7 @@ export function celdasExcel(matriz) {
   return matriz.map((fila, i) => fila.map(valor => ({ type: typeof valor === 'number' ? Number : String, value: typeof valor === 'number' ? valor : textoSeguro(valor), ...(i === 0 ? { fontWeight: 'bold', backgroundColor: '#004643', textColor: '#F0EDE5' } : {}) })));
 }
 export function matrizReporte(tipo, filas) {
-  if (tipo === 'stock') return [['Código', 'Producto', 'Categoría', 'Stock disponible', 'Stock mínimo', 'Estado'], ...filas.map(p => [p.codigo, p.nombre, p.categoria, Number(p.stock_actual), Number(p.stock_minimo), Number(p.stock_actual) === 0 ? 'Sin stock' : Number(p.stock_actual) <= Number(p.stock_minimo) ? 'Stock bajo' : 'Stock normal'])];
+  if (tipo === 'stock') return [['Código', 'Producto', 'Categoría', 'Stock disponible', 'Stock mínimo', 'Estado del producto', 'Estado del stock'], ...filas.map(p => [p.codigo, p.nombre, p.categoria, Number(p.stock_actual), Number(p.stock_minimo), p.estado || '-', Number(p.stock_actual) === 0 ? 'Sin stock' : Number(p.stock_actual) <= Number(p.stock_minimo) ? 'Stock bajo' : 'Stock normal'])];
   if (tipo === 'vencimientos') return [['Producto', 'Código', 'Lote', 'Vencimiento', 'Stock', 'Días restantes'], ...filas.map(l => [l.producto, l.codigo, l.codigo_lote, fechaVencimiento(l.fecha_vencimiento), Number(l.stock_actual), Number(l.dias_restantes)])];
   return [['Fecha (Argentina)', 'Producto', 'Código', 'Tipo', 'Cantidad', 'Motivo', 'Observaciones', 'Responsable'], ...filas.map(m => [new Date(m.fecha).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }), m.producto, m.codigo, m.tipo, Number(m.cantidad), m.motivo, m.observacion, m.usuario_responsable || 'Sin responsable registrado'])];
 }

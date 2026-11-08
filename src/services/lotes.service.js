@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { bloquearProductoActivo } = require('./producto-operacion');
 
 function validarLote(datos) {
     if (!datos || typeof datos !== 'object' || Array.isArray(datos)) throw new Error('Los datos del lote no son válidos');
@@ -22,8 +23,7 @@ async function crearLote(productoId, datos) {
     try {
         conexion = await pool.getConnection();
         await conexion.beginTransaction();
-        const productos = await conexion.query('SELECT id FROM productos WHERE id = ? FOR UPDATE', [productoId]);
-        if (!productos.length) throw new Error('Producto no encontrado');
+        await bloquearProductoActivo(conexion, productoId);
         const lote = await insertarLote(conexion, productoId, datos);
         await conexion.commit();
         return lote;

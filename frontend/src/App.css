@@ -351,7 +351,7 @@ body {
 .producto-cancelar, .producto-accion { border:1px solid #004643; border-radius:15px; padding:11px 18px; background:#F0EDE5; color:#004643; font:inherit; cursor:pointer; transition:background .3s, color .3s; }
 .producto-cancelar:hover, .producto-accion:hover { background:#004643; color:#F0EDE5; }
 .producto-cancelar:disabled, .producto-accion:disabled { opacity:.5; cursor:not-allowed; }
-.producto-acciones { display:flex; align-items:stretch; gap:8px; width:max-content; }
+.producto-acciones { display:flex; align-items:stretch; flex-wrap:wrap; gap:8px; max-width:100%; }
 .producto-accion { display:inline-flex; align-items:center; justify-content:center; min-height:44px; line-height:1.2; white-space:nowrap; flex:0 0 auto; }
 .stock-primario { background:#004643 !important; color:white !important; border:1px solid #004643 !important; border-radius:15px; padding:12px 20px; cursor:pointer; transition:transform .2s, background .2s; }
 .stock-primario:hover { background:#006b63 !important; transform:translateY(-2px); }
@@ -376,3 +376,6 @@ body {
 .product-detail .lots-table th, .product-detail .lots-table td { padding:12px; border-bottom:1px solid #e7ece9; text-align:left; }
 @media (max-width:950px) { .stock-filtros { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:650px) { .stock-form, .stock-filtros { grid-template-columns:1fr; } .stock-panel { padding:16px; } .stock-form-ancho { grid-column:auto; } }
+
+.producto-estado { display:inline-block; padding:5px 10px; border-radius:15px; background:#004643; color:#F0EDE5; }
+.producto-estado.inactivo { background:#F0EDE5; color:#1F2933; border:1px solid #004643; }

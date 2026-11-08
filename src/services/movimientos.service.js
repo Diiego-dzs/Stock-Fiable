@@ -1,3 +1,4 @@
+const { bloquearProductoActivo } = require('./producto-operacion');
 const pool = require('../config/db');
 const { validarLote, insertarLote } = require('./lotes.service');
 
@@ -57,16 +58,7 @@ async function registrarEntrada({
 
         await conexion.beginTransaction();
 
-        // 1. Verificar que el producto exista
-        const productos = await conexion.query(`
-            SELECT id
-            FROM productos
-            WHERE id = ?
-        `, [producto_id]);
-
-        if (productos.length === 0) {
-            throw new Error('Producto no encontrado');
-        }
+        await bloquearProductoActivo(conexion, producto_id);
 
         if (nuevo_lote !== undefined) {
             lote_id = (await insertarLote(conexion, producto_id, nuevo_lote)).id;
@@ -204,18 +196,7 @@ async function registrarSalida({
 
         await conexion.beginTransaction();
 
-        // 1. Verificar que el producto exista
-        const productos = await conexion.query(`
-            SELECT
-                id,
-                nombre
-            FROM productos
-            WHERE id = ?
-        `, [producto_id]);
-
-        if (productos.length === 0) {
-            throw new Error('Producto no encontrado');
-        }
+        await bloquearProductoActivo(conexion, producto_id);
 
         // 2. Buscar lotes con stock, ordenados por FEFO
         const lotes = await conexion.query(`

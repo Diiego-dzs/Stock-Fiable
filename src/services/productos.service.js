@@ -228,3 +228,24 @@ async function editarProducto(id, datos) {
     }
 }
 module.exports.editarProducto = editarProducto;
+
+async function cambiarEstadoProducto(id, datos) {
+ if (!Number.isSafeInteger(id) || id <= 0) throw errorProducto('El ID del producto no es válido');
+ if (!datos || typeof datos !== 'object' || Array.isArray(datos) || Object.keys(datos).length !== 1 || !Object.hasOwn(datos, 'estado') || !['activo', 'inactivo'].includes(datos.estado)) throw errorProducto('Enviá únicamente estado: activo o inactivo');
+ let conexion;
+ try {
+  conexion = await pool.getConnection();
+  await conexion.beginTransaction();
+  const actual = await require('./producto-operacion').bloquearProducto(conexion, id);
+  if (actual.estado !== datos.estado) await conexion.query('UPDATE productos SET estado = ?, fecha_actualizacion = CURRENT_TIMESTAMP WHERE id = ?', [datos.estado, id]);
+  const productos = await conexion.query(`SELECT p.*, c.nombre AS categoria,
+   COALESCE((SELECT SUM(l.stock_actual) FROM lotes l WHERE l.producto_id = p.id AND l.estado = 'activo'), 0) AS stock_actual
+   FROM productos p INNER JOIN categorias c ON c.id = p.categoria_id WHERE p.id = ?`, [id]);
+  await conexion.commit();
+  return productos[0];
+ } catch (error) {
+  if (conexion) await conexion.rollback();
+  throw error;
+ } finally { if (conexion) conexion.release(); }
+}
+module.exports.cambiarEstadoProducto = cambiarEstadoProducto;
