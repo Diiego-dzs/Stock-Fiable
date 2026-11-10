@@ -79,13 +79,13 @@ test('estado de productos: HTTP autenticado sin MariaDB', async t => {
 });
 
 test('bloqueos producto antes de lotes, FEFO tras reactivación y transacción única', async () => {
- for (const operacion of [() => productos.cambiarEstadoProducto(1,{estado:'inactivo'}), () => movimientos.registrarEntrada(entrada), () => movimientos.registrarEntrada({...entrada,lote_id:undefined,nuevo_lote:{}}), () => movimientos.registrarSalida(entrada), () => lotesService.crearLote(1,{})]) {
+ for (const operacion of [() => productos.cambiarEstadoProducto(1,{estado:'inactivo'}), () => movimientos.registrarEntrada(entrada), () => movimientos.registrarEntrada({...entrada,lote_id:undefined,nuevo_lote:{}}), () => movimientos.registrarSalida({ ...entrada, lote_id: undefined }), () => lotesService.crearLote(1,{})]) {
   reset(); await operacion(); const consultas=eventos.filter(e => e.sql);
   assert.equal(consultas[0].sql,'SELECT id, estado FROM productos WHERE id = ? FOR UPDATE');
   assert.equal(eventos[0],'begin'); assert.equal(eventos.filter(e => e === 'begin').length,1); assert.equal(eventos.filter(e => e === 'commit').length,1);
  }
  reset(); await productos.cambiarEstadoProducto(1,{estado:'inactivo'}); await productos.cambiarEstadoProducto(1,{estado:'activo'}); eventos=[];
- const salida=await movimientos.registrarSalida(entrada); assert.deepEqual(salida.lotes.map(l => l.cantidad),[3,2]);
+ const salida=await movimientos.registrarSalida({ ...entrada, lote_id: undefined }); assert.deepEqual(salida.lotes.map(l => l.cantidad),[3,2]);
  assert.ok(eventos.some(e => e.sql?.includes('fecha_vencimiento ASC, id ASC FOR UPDATE')));
 });
 
