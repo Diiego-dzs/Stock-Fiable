@@ -1,124 +1,20 @@
 const movimientosService = require('../services/movimientos.service');
 
-async function registrarEntrada(req, res) {
+async function registrar(req, res, entrada) {
     try {
-        const {
-            producto_id,
-            cantidad,
-            motivo,
-            observacion,
-            lote_id,
-    nuevo_lote
-        } = req.body;
-
-        if (
-            producto_id === undefined ||
-            producto_id === null ||
-            cantidad === undefined ||
-            cantidad === null
-        ) {
-            return res.status(400).json({
-                error: 'producto_id y cantidad son obligatorios'
-            });
-        }
-
-        if (!motivo || !motivo.trim()) {
-            return res.status(400).json({
-                error: 'El motivo es obligatorio'
-            });
-        }
-
-        if (Number(cantidad) <= 0) {
-            return res.status(400).json({
-                error: 'La cantidad debe ser mayor que cero'
-            });
-        }
-
-        const movimiento =
-            await movimientosService.registrarEntrada({
-                producto_id: Number(producto_id),
-                usuario_id: req.usuario.id,
-                cantidad: Number(cantidad),
-                motivo,
-                observacion,
-                lote_id: lote_id == null ? undefined : Number(lote_id),
-                nuevo_lote
-            });
-
-        res.status(201).json({
-            mensaje: 'Entrada registrada correctamente',
-            movimiento
-        });
-
+        const body = req.body;
+        if (!body || typeof body !== 'object' || Array.isArray(body)) return res.status(400).json({ error: 'Datos de movimiento inválidos' });
+        const { producto_id, cantidad, motivo, observacion, lote_id, nuevo_lote } = body;
+        const movimiento = await movimientosService[entrada ? 'registrarEntrada' : 'registrarSalida']({ producto_id, cantidad, motivo, observacion, lote_id, nuevo_lote, usuario_id: req.usuario.id });
+        res.status(201).json({ mensaje: entrada ? 'Entrada registrada correctamente' : 'Salida registrada correctamente', movimiento });
     } catch (error) {
-        console.error(
-            'Error al registrar entrada:',
-            error.message
-        );
-
-        res.status(error.status || 400).json({
-            error: error.message
-        });
+        const status = [400, 404, 409].includes(error.status) ? error.status : 500;
+        if (status === 500) console.error('Error interno al registrar movimiento');
+        res.status(status).json({ error: status === 500 ? 'No se pudo registrar el movimiento' : error.message });
     }
 }
-
-async function registrarSalida(req, res) {
-    try {
-        const {
-            producto_id,
-            cantidad,
-            motivo,
-            observacion
-        } = req.body;
-
-        if (
-            producto_id === undefined ||
-            producto_id === null ||
-            cantidad === undefined ||
-            cantidad === null
-        ) {
-            return res.status(400).json({
-                error: 'producto_id y cantidad son obligatorios'
-            });
-        }
-
-        if (!motivo || !motivo.trim()) {
-            return res.status(400).json({
-                error: 'El motivo es obligatorio'
-            });
-        }
-
-        if (Number(cantidad) <= 0) {
-            return res.status(400).json({
-                error: 'La cantidad debe ser mayor que cero'
-            });
-        }
-
-        const movimiento =
-            await movimientosService.registrarSalida({
-                producto_id: Number(producto_id),
-                usuario_id: req.usuario.id,
-                cantidad: Number(cantidad),
-                motivo,
-                observacion
-            });
-
-        res.status(201).json({
-            mensaje: 'Salida registrada correctamente',
-            movimiento
-        });
-
-    } catch (error) {
-        console.error(
-            'Error al registrar salida:',
-            error.message
-        );
-
-        res.status(error.status || 400).json({
-            error: error.message
-        });
-    }
-}
+async function registrarEntrada(req, res) { return registrar(req, res, true); }
+async function registrarSalida(req, res) { return registrar(req, res, false); }
 
 async function obtenerMovimientos(req, res) {
     try {

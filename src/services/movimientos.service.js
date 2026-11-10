@@ -1,55 +1,14 @@
+const { MAX_CENTESIMAS, errorMovimiento, centesimas, decimalSQL, validarMovimiento } = require('./movimientos.validaciones');
 const { bloquearProductoActivo } = require('./producto-operacion');
 const pool = require('../config/db');
 const { validarLote, insertarLote } = require('./lotes.service');
 
-async function registrarEntrada({
-    producto_id,
-    usuario_id,
-    cantidad,
-    motivo,
-    observacion,
-    lote_id,
-    nuevo_lote
-}) {
-    if (!Number.isFinite(Number(cantidad)) || Number(cantidad) <= 0 || Number(cantidad) > 99999999.99 || !/^\d+(\.\d{1,2})?$/.test(String(cantidad))) {
-    throw new Error(
-        'La cantidad debe ser mayor que 0'
-    );
-}
-
-    if (!Number.isInteger(Number(producto_id)) || Number(producto_id) <= 0) {
-    throw new Error(
-        'El producto_id debe ser un número entero mayor que 0'
-    );
-}
-
-    if (nuevo_lote === undefined && (!Number.isInteger(Number(lote_id)) || Number(lote_id) <= 0)) {
-    throw new Error(
-        'El lote_id debe ser un número entero mayor que 0'
-    );
-}
-
-    if (!motivo || !motivo.trim()) {
-    throw new Error(
-        'El motivo es obligatorio'
-    );
-}
-
-    if (motivo.trim().length > 100) {
-    throw new Error(
-        'El motivo no puede superar los 100 caracteres'
-    );
-}
-
-    if (observacion && observacion.trim().length > 255) {
-    throw new Error(
-        'La observacion no puede superar los 255 caracteres'
-    );
-}
-
+async function registrarEntrada(datos) {
+    let { producto_id, usuario_id, cantidad: cantidadExacta, motivo, observacion, lote_id, nuevo_lote } = validarMovimiento(datos, true);
+    const cantidad = decimalSQL(cantidadExacta);
     if (nuevo_lote !== undefined) {
-        if (lote_id !== undefined && lote_id !== null) throw new Error('Elegí lote_id o nuevo_lote, no ambos');
-        validarLote(nuevo_lote);
+        try { validarLote(nuevo_lote); }
+        catch (error) { throw errorMovimiento(error.message); }
     }
     let conexion;
 
@@ -78,10 +37,12 @@ async function registrarEntrada({
         `, [lote_id, producto_id]);
 
         if (lotes.length === 0) {
-            throw new Error(
+            throw errorMovimiento(
                 'El lote no existe, no está activo o no pertenece al producto'
             );
         }
+
+        if (centesimas(lotes[0].stock_actual, true) + cantidadExacta > MAX_CENTESIMAS) throw errorMovimiento('La entrada supera la capacidad máxima del lote', 409);
 
         // 3. Registrar movimiento principal
         const resultadoMovimiento = await conexion.query(`
@@ -135,7 +96,7 @@ async function registrarEntrada({
             producto_id,
             lote_id,
             tipo: 'ENTRADA',
-            cantidad
+            cantidad: Number(cantidad)
         };
 
     } catch (error) {
@@ -152,43 +113,9 @@ async function registrarEntrada({
     }
 }
 
-async function registrarSalida({
-    producto_id,
-    usuario_id,
-    cantidad,
-    motivo,
-    observacion
-}) {
-    if (!cantidad || Number(cantidad) <= 0) {
-    throw new Error(
-        'La cantidad debe ser mayor que 0'
-    );
-}
-
-    if (!Number.isInteger(Number(producto_id)) || Number(producto_id) <= 0) {
-    throw new Error(
-        'El producto_id debe ser un número entero mayor que 0'
-    );
-}
-
-    if (!motivo || !motivo.trim()) {
-    throw new Error(
-        'El motivo es obligatorio'
-    );
-}
-
-    if (motivo.trim().length > 100) {
-    throw new Error(
-        'El motivo no puede superar los 100 caracteres'
-    );
-}
-
-    if (observacion && observacion.trim().length > 255) {
-    throw new Error(
-        'La observacion no puede superar los 255 caracteres'
-    );
-}
-
+async function registrarSalida(datos) {
+    const { producto_id, usuario_id, cantidad: cantidadExacta, motivo, observacion } = validarMovimiento(datos, false);
+    const cantidad = decimalSQL(cantidadExacta);
     let conexion;
 
     try {
@@ -217,14 +144,12 @@ async function registrarSalida({
 
         // 3. Comprobar stock disponible
         const stockDisponible = lotes.reduce(
-            (total, lote) => total + Number(lote.stock_actual),
-            0
+            (total, lote) => total + centesimas(lote.stock_actual, true),
+            0n
         );
 
-        if (stockDisponible < cantidad) {
-            throw new Error(
-                `Stock insuficiente. Disponible: ${stockDisponible}`
-            );
+        if (stockDisponible < cantidadExacta) {
+            throw errorMovimiento(`Stock insuficiente. Disponible: ${decimalSQL(stockDisponible)}`, 409);
         }
 
         // 4. Registrar movimiento principal
@@ -249,20 +174,18 @@ async function registrarSalida({
         const movimientoId = Number(resultadoMovimiento.insertId);
 
         // 5. Repartir la salida utilizando FEFO
-        let cantidadPendiente = Number(cantidad);
+        let cantidadPendiente = cantidadExacta;
         const lotesUtilizados = [];
 
         for (const lote of lotes) {
-            if (cantidadPendiente <= 0) {
+            if (cantidadPendiente <= 0n) {
                 break;
             }
 
-            const stockLote = Number(lote.stock_actual);
+            const stockLote = centesimas(lote.stock_actual, true);
 
-            const cantidadSalida = Math.min(
-                cantidadPendiente,
-                stockLote
-            );
+            const cantidadSalidaExacta = cantidadPendiente < stockLote ? cantidadPendiente : stockLote;
+            const cantidadSalida = decimalSQL(cantidadSalidaExacta);
 
             // Registrar movimiento del lote
             await conexion.query(`
@@ -291,11 +214,13 @@ async function registrarSalida({
             lotesUtilizados.push({
                 lote_id: lote.id,
                 codigo_lote: lote.codigo_lote,
-                cantidad: cantidadSalida
+                cantidad: Number(cantidadSalida)
             });
 
-            cantidadPendiente -= cantidadSalida;
+            cantidadPendiente -= cantidadSalidaExacta;
         }
+
+        if (cantidadPendiente !== 0n) throw errorMovimiento('No se pudo completar la distribución FEFO', 500);
 
         // 6. Confirmar toda la operación
         await conexion.commit();
@@ -304,7 +229,7 @@ async function registrarSalida({
             movimiento_id: movimientoId,
             producto_id,
             tipo: 'SALIDA',
-            cantidad,
+            cantidad: Number(cantidad),
             lotes: lotesUtilizados
         };
 
