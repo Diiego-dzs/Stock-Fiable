@@ -1,13 +1,13 @@
-# Infraestructura MariaDB aislada — Fase 1
+# Infraestructura MariaDB aislada — Fases 1 y 2A
 
-**Esta fase prepara archivos; no autoriza ejecutar el contenedor.** No ejecutar el
-script de integración hasta recibir autorización específica. `npm test` continúa
+**La primera ejecución real de la infraestructura y los nueve escenarios de Fase 2A fueron exitosos.**
+Cada nueva ejecución requiere autorización explícita. `npm test` continúa
 ejecutando solamente las pruebas existentes con mocks, sin Docker.
 
 ## Requisitos para una ejecución futura
 
 - Node 24 y dependencias existentes instaladas.
-- Docker con contenedores Linux, accesible en el contexto local `default`.
+- Docker Desktop con motor Linux, accesible en el contexto local `default` y CLI disponible en PATH.
 - Sin `DOCKER_HOST`, `DOCKER_CONTEXT`, `DOCKER_TLS_VERIFY` ni `DOCKER_CERT_PATH`.
 - Permiso posterior para descargar/iniciar la imagen y crear datos sintéticos.
 
@@ -19,7 +19,7 @@ La referencia utilizada combina versión y digest; no utiliza `latest`.
 ## Comando futuro, sujeto a autorización
 
 ```sh
-npm run test:integracion -- --ejecutar
+npm.cmd run test:integracion -- --ejecutar
 ```
 
 Sin `--ejecutar`, el proceso termina antes de invocar Docker. No admite parámetros
@@ -75,10 +75,61 @@ El pool inyectado conserva consultas reales; no simula resultados de MariaDB.
 Las transacciones de servicios siguen bajo control de los servicios. No envolverlas
 en una transacción externa esperando revertir conexiones independientes.
 
-En Fase 1 el comando futuro solo prepara y destruye la infraestructura; **no hay
-todavía pruebas reales de concurrencia ni afirmación de éxito de esas pruebas**.
-La matriz de precisión, rollback, concurrencia, timeouts y deadlocks se incorporará
-en una fase posterior. No se modificó el workflow CI actual.
+El comando ahora prepara la infraestructura y ejecuta secuencialmente nueve escenarios
+de precisión/integridad/rollback de `precision.js`, antes de cerrar el pool y retirar
+el contenedor. No ejecuta concurrencia, timeouts ni deadlocks. No se modificó el CI.
+
+## Fase 2A: nueve escenarios aprobados contra MariaDB aislada
+
+La ejecución real finalizó con código 0 en 57,27 segundos. Se validaron precisión
+decimal, límites de DECIMAL(10,2), distribución FEFO e integridad del rollback.
+Se cerraron las conexiones y se retiró el contenedor propio; la comprobación
+posterior no encontró contenedores con la etiqueta del ejecutor.
+Las pruebas de concurrencia, deadlocks y caídas del servidor siguen pendientes.
+
+- Entradas 0.10 + 0.20, saldo exacto 0.30.
+- Entrada 0.30 y salida 0.10, saldo exacto 0.20.
+- Diez ciclos 0.03 de entrada y 0.02 de salida, comprobando cada saldo.
+- Entrada máxima 99999999.99, exceso de capacidad por 0.01 rechazado con 409,
+  snapshot intacto y salida del máximo. El límite de capacidad es por lote,
+  no se agrega un límite artificial a la suma de varios lotes.
+- Cantidades fuera del rango y con tres decimales rechazadas con 400 en ambos servicios.
+- FEFO decimal: lotes de 0.10 y 0.20; salida 0.25 con detalles 0.10 y 0.15.
+- Rollback al insertar detalle de entrada, incluida la creación de un lote nuevo.
+- Rollback al insertar detalle de salida.
+- Rollback antes de la segunda actualización FEFO, después de ejecutar la primera
+  actualización real y de insertar los detalles de ambos lotes.
+
+Cada escenario crea un producto y dos lotes nuevos usando solo la categoría y usuario
+sintéticos iniciales. No depende de stock residual ni elimina tablas para reiniciar.
+Los datos sintéticos quedan dentro del tmpfs y desaparecen al retirar el contenedor.
+
+Se inyecta el pool antes de importar servicios. Las entradas/salidas llaman a los
+servicios productivos sin mocks de resultados: INSERT, UPDATE, transacciones y rollback
+se ejecutan en MariaDB real aislada. `conInterceptor()` modifica únicamente el
+adaptador de consulta del helper, en ámbito secuencial exclusivo y con restauración
+en `finally`. Provoca un error JavaScript antes de la consulta elegida, tras operaciones
+reales anteriores. No crea triggers, no altera restricciones ni desactiva FK. Esto
+comprueba el rollback del servicio ante un fallo de consulta; no simula una caída del
+servidor ni todos los errores posibles del motor.
+
+Un oráculo independiente exige valores DECIMAL de texto con dos posiciones y los
+convierte a BigInt. Comprueba saldo por lote, stock agregado del listado de productos,
+sumas de detalles por movimiento, historial neto e inexistencia de detalles huérfanos.
+Ante cada fallo se comparan snapshots de producto, lotes, movimientos y detalles;
+se espera la liberación de conexiones y se exige una entrada y salida válidas posteriores.
+No se comparan contadores AUTO_INCREMENT: sus huecos tras rollback son normales.
+
+Las verificaciones locales sin Docker incluyen:
+
+```sh
+node --test tests/integracion/ciclo-vida.test.js tests/integracion/precision.simulada.test.js
+```
+
+Importar `precision.js` no ejecuta SQL ni carga configuración productiva. Las pruebas
+simuladas validan el oráculo, el ámbito del interceptor, la espera de liberaciones y
+la limpieza ante fallo de escenario. No sustituyen ejecutar los nueve escenarios reales.
+Cualquier repetición de Fase 2A requiere una nueva autorización explícita.
 
 ## Fallos y limpieza
 

@@ -16,7 +16,7 @@ async function crearEntorno({ verificar, database, user, password, marcador, sig
     const pool = crearPool({ host: destino.host, port: destino.port, database, user, password,
         connectionLimit: 5, minimumIdle: 0, connectTimeout: 5000, acquireTimeout: 10000,
         decimalAsNumber: false, multipleStatements: false });
-    let cerrado = false, cierre, restaurar;
+    let cerrado = false, cierre, restaurar, interceptor;
     const conexiones = new Set(), pendientes = new Set(), liberaciones = new Set(), fallosLiberacion = [];
     function comprobar() { cancelar(); if (cerrado) throw new Error('Entorno cerrado'); }
     function obtenerConexion() {
@@ -26,6 +26,12 @@ async function crearEntorno({ verificar, database, user, password, marcador, sig
             comprobar();
             if (actual.host !== destino.host || actual.port !== destino.port || actual.hostname !== destino.hostname) throw new Error('El destino temporal cambió');
             const conexion = await pool.getConnection();
+            const consultar = conexion.query.bind(conexion);
+            conexion.query = async (sql, params) => {
+                comprobar();
+                if (interceptor) await interceptor(sql, params);
+                return consultar(sql, params);
+            };
             const registro = { conexion, promesa: null };
             const original = conexion.release.bind(conexion);
             function liberar() {
@@ -66,6 +72,18 @@ async function crearEntorno({ verificar, database, user, password, marcador, sig
     const exclusivo = { getConnection: obtenerConexion, query: (sql, params) => conConexion(c => c.query(sql, params)) };
     return {
         pool: exclusivo, conConexion,
+        async esperarLiberaciones() {
+            await Promise.allSettled([...liberaciones]);
+            if (fallosLiberacion.length) throw fallosLiberacion[0];
+            if (pendientes.size || conexiones.size) throw new Error('Quedaron conexiones pendientes');
+        },
+        async conInterceptor(antesConsulta, tarea) {
+            comprobar();
+            if (interceptor || conexiones.size || pendientes.size) throw new Error('La inyección exige un entorno exclusivo sin conexiones');
+            interceptor = antesConsulta;
+            try { return await tarea(); }
+            finally { interceptor = undefined; }
+        },
         preparar: () => conConexion(c => prepararSchema(c, marcador, comprobar)),
         transaccion: tarea => conConexion(async c => {
             comprobar(); await c.beginTransaction();

@@ -7,7 +7,7 @@ const IMAGEN = 'docker.io/library/mariadb:11.4.9@sha256:54ac814d243128263e18cf81
 const ETIQUETA = 'stock-fiable.integration';
 
 // Injectable lifecycle for mock-only tests. The CLI below is the only real Docker adapter.
-async function ejecutarCiclo({ docker, identidad, password, rootPassword, signal, crear = crearEntorno, esperar = ms => new Promise(r => setTimeout(r, ms)) }) {
+async function ejecutarCiclo({ docker, identidad, password, rootPassword, signal, crear = crearEntorno, pruebas = require('./precision'), esperar = ms => new Promise(r => setTimeout(r, ms)) }) {
     if (!/^sf_it_[a-f0-9]{24}$/.test(identidad)) throw new Error('Identidad temporal inválida');
     let id, entorno, intentoCrear = false, etapa = 'contexto', error;
     const comprobar = () => { if (signal?.aborted) throw new Error('Cancelación solicitada'); };
@@ -53,8 +53,9 @@ async function ejecutarCiclo({ docker, identidad, password, rootPassword, signal
         etapa = 'pool'; comprobar();
         entorno = await crear({ verificar, database: identidad, marcador: identidad, user: 'sf_test', password, signal });
         etapa = 'esquema'; comprobar(); await entorno.preparar(); comprobar();
-        etapa = 'inyección'; entorno.inyectarServicios(); comprobar();
-    } catch (e) { error = e; error.etapa = etapa; }
+        etapa = 'inyección'; const servicios = entorno.inyectarServicios(); comprobar();
+        etapa = 'pruebas Fase 2A'; await pruebas({ entorno, servicios, comprobar }); comprobar();
+    } catch (e) { error = e; error.etapa ||= etapa; }
     // Cancellation forbids new workload, but must not disable cleanup inspections.
     try { if (entorno) await entorno.cerrar(); } catch (e) { e.etapa = 'cierre del pool'; error = conservarError(error, e); }
     if (intentoCrear) {
@@ -85,7 +86,7 @@ async function main() {
     };
     try {
         await ejecutarCiclo({ docker, identidad: 'sf_it_' + randomBytes(12).toString('hex'), password: randomBytes(32).toString('hex'), rootPassword: randomBytes(32).toString('hex'), signal: controller.signal });
-        console.log('Infraestructura temporal preparada y retirada; no se ejecutó una suite real de concurrencia.');
+        console.log('Fase 2A completada y contenedor retirado; no se ejecutaron pruebas de concurrencia.');
     } finally { process.off('SIGINT', cancelar); process.off('SIGTERM', cancelar); }
 }
 if (require.main === module) main().catch(error => {

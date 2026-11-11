@@ -24,7 +24,7 @@ function escenario({ controller, falloCreate, ajeno, falloRm, cancelarInspeccion
         if (args[0] === 'rm') { if (falloRm) throw new Error('limpieza simulada'); return ''; }
         assert.fail('Operación no prevista');
     }
-    const opciones = { docker, identidad, password: 'sintetica', rootPassword: 'sintetica-root', signal: controller?.signal,
+    const opciones = { docker, identidad, password: 'sintetica', rootPassword: 'sintetica-root', signal: controller?.signal, pruebas: async () => {},
         crear: async ({ verificar }) => {
             await verificar();
             return { preparar: async () => { if (falloPreparar) throw principal; }, inyectarServicios() {}, cerrar: async () => { if (falloCerrar) throw new Error('cierre simulado'); } };
@@ -80,6 +80,14 @@ test('fallos de cierre y eliminación no ocultan el error de preparación', asyn
 test('ciclo normal verifica, prepara y retira el recurso', async () => {
     const e = escenario(); await ejecutarCiclo(e.opciones);
     assert.ok(e.llamadas.some(a => a[0] === 'start'));
+    assert.deepEqual(e.llamadas.at(-1), ['rm', id]);
+});
+
+test('fallo de escenario Fase 2A conserva diagnóstico y limpia el contenedor propio', async () => {
+    const e = escenario();
+    const fallo = Object.assign(new Error('fallo de prueba'), { etapa: 'Fase 2A: simulada' });
+    e.opciones.pruebas = async () => { throw fallo; };
+    await assert.rejects(ejecutarCiclo(e.opciones), error => error === fallo && error.etapa === 'Fase 2A: simulada');
     assert.deepEqual(e.llamadas.at(-1), ['rm', id]);
 });
 
