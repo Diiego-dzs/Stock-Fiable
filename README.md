@@ -65,10 +65,23 @@ local en la raíz, sin versionarlo ni compartir sus valores. Las variables usada
 | `DB_NAME` | Nombre de la base destinada a Stock Fiable. |
 | `JWT_SECRET` | Secreto privado para firmar y verificar tokens. |
 | `PORT` | Puerto HTTP del backend; si se omite, se utiliza 3000. |
+| `CORS_ORIGINS` | Orígenes HTTP/HTTPS autorizados, separados por comas; si se omite, solo `http://localhost:5173`. |
 
 No reutilizar secretos de otras instalaciones ni incluir credenciales reales en
-documentación, capturas, fixtures o commits. No hay una variable del frontend
-implementada para sustituir la URL de la API.
+documentación, capturas, fixtures o commits. La raíz incluye `.env.example`, sin
+credenciales y con secretos vacíos, como referencia de nombres y configuración local.
+No copiarlo sobre un `.env` existente ni reemplazar las credenciales que ya funcionan.
+
+El frontend admite `VITE_API_URL`, documentada en `frontend/.env.example`. Si no
+se define, utiliza `http://localhost:3000/api`. Debe ser una URL absoluta HTTP/HTTPS
+sin credenciales, consulta ni fragmento. Se eliminan barras finales sin quitar
+la ruta `/api`; por ejemplo, `https://api.example.invalid/api/` se convierte en
+`https://api.example.invalid/api`. Una variable definida pero vacía o inválida
+produce un error de configuración; no se sustituye silenciosamente por localhost.
+
+**Las variables `VITE_*` son públicas y se incorporan a la compilación.** No colocar
+contraseñas, tokens ni `JWT_SECRET` en ellas. Cambiar `VITE_API_URL` requiere reiniciar
+Vite en desarrollo o volver a compilar la interfaz para una entrega estática.
 
 ## Preparación de MariaDB
 
@@ -111,14 +124,49 @@ npm run dev
 
 La configuración actual utiliza:
 
-- API del frontend: `http://localhost:3000/api`, definida en `frontend/src/App.jsx`.
-- Origen permitido por CORS: `http://localhost:5173`, definido en `src/app.js`.
+- API predeterminada: `http://localhost:3000/api`, centralizada en `frontend/src/configuracion.js`.
+- CORS predeterminado: `http://localhost:5173`, configurado mediante `src/config/cors.js`.
 - Backend: puerto 3000 por defecto.
 
 Utilizar el origen local permitido. Si Vite ocupa otro puerto, se cambia `PORT`,
 se accede desde otra computadora o se utiliza otro dominio, la configuración
-actual no se adapta automáticamente. Cambiar solo las variables del backend no
-actualiza la URL de la API del frontend ni CORS.
+no se adapta automáticamente. Configurar `VITE_API_URL` en el entorno del frontend
+y `CORS_ORIGINS` en el backend según corresponda; cambiar solo `PORT` no actualiza
+las otras dos opciones. Sin definir las nuevas variables se conserva el uso local.
+
+### Preparación para un futuro dominio privado
+
+Esta etapa agrega configuración, pruebas y ejemplos: **no se ha desplegado ningún
+servicio ni se han abierto puertos**. La exposición sigue siendo local y utiliza
+los usuarios existentes, sin migrarlos ni modificar su autenticación o permisos.
+
+Para un futuro entorno autorizado, los nombres de ejemplo siguientes ilustran la
+configuración; no representan servicios existentes:
+
+```text
+Frontend: VITE_API_URL=https://api.example.invalid/api
+Backend:  CORS_ORIGINS=https://app.example.invalid
+```
+
+`CORS_ORIGINS` acepta una lista explícita, por ejemplo
+`https://app.example.invalid,https://admin.example.invalid`. Solo indicar orígenes
+(esquema, host y puerto cuando corresponda), sin barra final ni rutas. Se rechazan
+comodines, credenciales, consultas, fragmentos, elementos vacíos y valores inválidos.
+Los orígenes se canonicalizan como URLs; la comprobación de cada solicitud es exacta,
+sin coincidencias parciales o por subdominio. Una lista personalizada **reemplaza**
+el valor local: localhost no se agrega automáticamente. Reiniciar el backend después
+de cambiarla. No es necesario modificar CORS para la exposición local actual.
+
+CORS controla el acceso de navegadores a las respuestas; no reemplaza JWT ni hace
+privada la API. Las peticiones sin Origin conservan las validaciones habituales del
+backend. No se habilitan cookies ni se cambia el envío de tokens Bearer.
+
+Antes de conectar la aplicación a Internet se requiere HTTPS para interfaz y API,
+una base online independiente con usuario y secretos propios, permisos mínimos y
+una revisión específica de proxy, acceso privado, protección de login y respaldos.
+No apuntar el servidor online a la base local ni reutilizar automáticamente cuentas,
+credenciales o dumps históricos. No utilizar Vite de desarrollo para publicar la
+aplicación. La parametrización actual no certifica que esté lista para producción.
 
 Para generar la interfaz compilada:
 
@@ -237,7 +285,8 @@ Estos resultados no validan concurrencia real, deadlocks ni caídas del servidor
 - Probar operaciones simultáneas, deadlocks, tiempos de espera y caídas del motor
   en una base aislada.
 - Evaluar incorporar la integración aislada al CI como etapa independiente.
-- Parametrizar la URL del frontend y los orígenes CORS antes de cambiar el entorno.
+- Validar la configuración parametrizada de API y CORS en el futuro entorno privado,
+  manteniendo la exposición local independiente.
 - Definir y verificar despliegue, HTTPS, gestión de secretos, respaldos y restauración
   antes de considerar un uso en producción.
 
