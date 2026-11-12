@@ -12,8 +12,8 @@ import Alertas from './Alertas.jsx';
 import Reportes from './Reportes.jsx';
 import PanelPrincipal from './PanelPrincipal.jsx';
 import { crearDatosPanel } from './panel.datos.js';
+import { API_URL } from './configuracion.js';
 
-const API_URL = 'http://localhost:3000/api';
 const filtrosIniciales = { tipo: '', producto_id: '', fecha_desde: '', fecha_hasta: '' };
 const productoInicial = { codigo: '', nombre: '', descripcion: '', marca: '', categoria_id: '', precio_compra: '0', precio_venta: '0', stock_minimo: '0' };
 const loteInicial = { codigo_lote: '', fecha_vencimiento: '' };

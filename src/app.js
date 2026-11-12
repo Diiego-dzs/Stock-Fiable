@@ -1,4 +1,6 @@
 require('dotenv').config();
+const { crearOpcionesCors } = require('./config/cors');
+const opcionesCors = crearOpcionesCors(process.env.CORS_ORIGINS);
 
 const cors = require('cors');
 
@@ -17,9 +19,7 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-app.use(cors({
-    origin: 'http://localhost:5173'
-}));
+app.use(cors(opcionesCors));
 
 app.get('/', (req, res) => {
     res.json({
